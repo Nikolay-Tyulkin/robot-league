@@ -64,7 +64,7 @@
     "oxlint-tsgolint": "7.0.2001",
     "tailwindcss": "4.2.1",
     "tsx": "^4.23.13",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
