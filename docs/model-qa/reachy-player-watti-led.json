@@ -1,0 +1,42 @@
+{
+  "typecheck": "passed",
+  "reachy": {
+    "poses": 4492,
+    "solverFailures": 0,
+    "maxPerRodError": [
+      5.131408055952479e-7,
+      1.1487589816380692e-15,
+      2.846243048821613e-7,
+      2.5748507163865726e-7,
+      1.1460960348076917e-7,
+      1.1753255895046845e-7
+    ],
+    "maxGroundError": 5.232860811332785e-10,
+    "maxMotorLimitOverrun": 0
+  },
+  "action": {
+    "tap": {
+      "peakSeconds": 0.09,
+      "recoveryComplete": true
+    },
+    "kick": {
+      "peakSeconds": 0.19,
+      "recoveryComplete": true
+    }
+  },
+  "instances": {
+    "sameKindPlayerAndRefereeIndependent": true,
+    "teamColors": "cyan/orange",
+    "roleAndNewMatchReset": true
+  },
+  "watti": {
+    "ledParent": "joint_head_yaw",
+    "radiusMeters": 0.0642,
+    "tubeRadiusMeters": 0.0012,
+    "glowIntensity": 0.7,
+    "maxAttachmentError": 1.2392596828105501e-16,
+    "headArticulationSamples": 121,
+    "ledGeometryDisposals": 1,
+    "ledMaterialDisposals": 1
+  }
+}

@@ -1,0 +1,560 @@
+{
+  "id": "microduck",
+  "model": "model.glb",
+  "units": "meters",
+  "upAxis": "Y",
+  "sourceUpAxis": "Z",
+  "quaternionOrder": "xyzw",
+  "jointRotationRule": "Set quaternion = restQuaternion * axisAngle(axis, angle - restAngle). Joint angles use source radians. Ball joints use quaternion rotation. ModelRoot converts source Z-up to Y-up and grounds feet.",
+  "bounds": {
+    "min": [
+      -0.04764641037644085,
+      0,
+      -0.07103292813434459
+    ],
+    "max": [
+      0.0752246075430039,
+      0.2716234284227049,
+      0.07106552843065954
+    ],
+    "size": [
+      0.12287101791944476,
+      0.2716234284227049,
+      0.14209845656500414
+    ]
+  },
+  "triangles": 264340,
+  "joints": {
+    "left_hip_yaw": {
+      "node": "joint_left_hip_yaw",
+      "body": "yaw2roll",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -0.4363323129985824,
+        0.5235987755982988
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "left_hip_roll": {
+      "node": "joint_left_hip_roll",
+      "body": "hip_l",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -0.3839724354386992,
+        0.38397243543880577
+      ],
+      "restAngle": -0.0873,
+      "restQuaternion": [
+        0,
+        0,
+        -0.043636140099257426,
+        0.9990474900009698
+      ]
+    },
+    "left_hip_pitch": {
+      "node": "joint_left_hip_pitch",
+      "body": "upper_leg_left",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.570796326794949,
+        1.5707963267948442
+      ],
+      "restAngle": -0.4579,
+      "restQuaternion": [
+        0,
+        0,
+        -0.2269550483356912,
+        0.9739052346275504
+      ]
+    },
+    "left_knee": {
+      "node": "joint_left_knee",
+      "body": "leg",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.5707963267948983,
+        1.5707963267948948
+      ],
+      "restAngle": -0.0049,
+      "restQuaternion": [
+        0,
+        0,
+        -0.002449997548979902,
+        0.9999969987515013
+      ]
+    },
+    "left_ankle": {
+      "node": "joint_left_ankle",
+      "body": "ankle_left",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.5707963267949063,
+        1.5707963267948868
+      ],
+      "restAngle": 0.453,
+      "restQuaternion": [
+        0,
+        0,
+        0.22456830174941692,
+        0.9744583510080781
+      ]
+    },
+    "neck_pitch": {
+      "node": "joint_neck_pitch",
+      "body": "neck",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.5707963267948974,
+        1.0471975511965967
+      ],
+      "restAngle": 0.3491,
+      "restQuaternion": [
+        0,
+        0,
+        0.17366499303759564,
+        0.984804787860646
+      ]
+    },
+    "head_pitch": {
+      "node": "joint_head_pitch",
+      "body": "neck_pitch",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.5707963267948966,
+        1.5707963267948966
+      ],
+      "restAngle": 0.3491,
+      "restQuaternion": [
+        0,
+        0,
+        0.17366499303759564,
+        0.984804787860646
+      ]
+    },
+    "head_yaw": {
+      "node": "joint_head_yaw",
+      "body": "yaw_roll_motion",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -2.9670597283903613,
+        2.9670597283903595
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "head_roll": {
+      "node": "joint_head_roll",
+      "body": "jaw_soft",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -0.43633231299858327,
+        0.4363323129985815
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "right_hip_yaw": {
+      "node": "joint_right_hip_yaw",
+      "body": "bearing_roll",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -0.523598775598297,
+        0.43633231299858416
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "right_hip_roll": {
+      "node": "joint_right_hip_roll",
+      "body": "hip_l_2",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -0.3839724354387507,
+        0.38397243543875426
+      ],
+      "restAngle": 0.0873,
+      "restQuaternion": [
+        0,
+        0,
+        0.043636140099257426,
+        0.9990474900009698
+      ]
+    },
+    "right_hip_pitch": {
+      "node": "joint_right_hip_pitch",
+      "body": "upper_leg_right",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.57079632679494,
+        1.570796326794853
+      ],
+      "restAngle": 0.4579,
+      "restQuaternion": [
+        0,
+        0,
+        0.2269550483356912,
+        0.9739052346275504
+      ]
+    },
+    "right_knee": {
+      "node": "joint_right_knee",
+      "body": "leg_2",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.5707963267949339,
+        1.5707963267948593
+      ],
+      "restAngle": 0.0049,
+      "restQuaternion": [
+        0,
+        0,
+        0.002449997548979902,
+        0.9999969987515013
+      ]
+    },
+    "right_ankle": {
+      "node": "joint_right_ankle",
+      "body": "ankle_right",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.5707963267949028,
+        1.5707963267948903
+      ],
+      "restAngle": -0.453,
+      "restQuaternion": [
+        0,
+        0,
+        -0.22456830174941692,
+        0.9744583510080781
+      ]
+    }
+  },
+  "bodies": {
+    "trunk_base": {
+      "node": "body_trunk_base",
+      "parentNode": "ModelRoot",
+      "position": [
+        0,
+        0,
+        0.12
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "yaw2roll": {
+      "node": "body_yaw2roll",
+      "parentNode": "body_trunk_base",
+      "position": [
+        0.006,
+        0.0175,
+        -0.005
+      ],
+      "quaternion": [
+        -0.707107,
+        -0.707107,
+        0,
+        0
+      ]
+    },
+    "hip_l": {
+      "node": "body_hip_l",
+      "parentNode": "pivot_content_left_hip_yaw",
+      "position": [
+        0,
+        0.0165,
+        0.0125
+      ],
+      "quaternion": [
+        -0.707107,
+        0,
+        0,
+        0.707107
+      ]
+    },
+    "upper_leg_left": {
+      "node": "body_upper_leg_left",
+      "parentNode": "pivot_content_left_hip_roll",
+      "position": [
+        0.025,
+        0,
+        -0.0185
+      ],
+      "quaternion": [
+        -0.5,
+        0.5,
+        -0.5,
+        0.5
+      ]
+    },
+    "leg": {
+      "node": "body_leg",
+      "parentNode": "pivot_content_left_hip_pitch",
+      "position": [
+        0.022,
+        0.0357771,
+        -0.004
+      ],
+      "quaternion": [
+        0.707107,
+        0.707107,
+        0,
+        0
+      ]
+    },
+    "ankle_left": {
+      "node": "body_ankle_left",
+      "parentNode": "pivot_content_left_knee",
+      "position": [
+        0,
+        0.042,
+        -0.026
+      ],
+      "quaternion": [
+        -1,
+        0,
+        0,
+        0
+      ]
+    },
+    "neck": {
+      "node": "body_neck",
+      "parentNode": "body_trunk_base",
+      "position": [
+        0.026,
+        0.0145,
+        0.0324215
+      ],
+      "quaternion": [
+        0,
+        0.707107,
+        -0.707107,
+        0
+      ]
+    },
+    "neck_pitch": {
+      "node": "body_neck_pitch",
+      "parentNode": "pivot_content_neck_pitch",
+      "position": [
+        0,
+        -0.05,
+        0
+      ],
+      "quaternion": [
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    "yaw_roll_motion": {
+      "node": "body_yaw_roll_motion",
+      "parentNode": "pivot_content_head_pitch",
+      "position": [
+        0,
+        0.0186931,
+        -0.0145
+      ],
+      "quaternion": [
+        0,
+        -0.707107,
+        -0.707107,
+        0
+      ]
+    },
+    "jaw_soft": {
+      "node": "body_jaw_soft",
+      "parentNode": "pivot_content_head_yaw",
+      "position": [
+        -0.0179,
+        0,
+        0.0145
+      ],
+      "quaternion": [
+        0,
+        -0.707107,
+        0,
+        0.707107
+      ]
+    },
+    "bearing_roll": {
+      "node": "body_bearing_roll",
+      "parentNode": "body_trunk_base",
+      "position": [
+        0.006,
+        -0.0175,
+        -0.005
+      ],
+      "quaternion": [
+        -0.707107,
+        -0.707107,
+        0,
+        0
+      ]
+    },
+    "hip_l_2": {
+      "node": "body_hip_l_2",
+      "parentNode": "pivot_content_right_hip_yaw",
+      "position": [
+        0,
+        0.0165,
+        0.0125
+      ],
+      "quaternion": [
+        0,
+        0.707107,
+        0.707107,
+        0
+      ]
+    },
+    "upper_leg_right": {
+      "node": "body_upper_leg_right",
+      "parentNode": "pivot_content_right_hip_roll",
+      "position": [
+        0.025,
+        0,
+        -0.0185
+      ],
+      "quaternion": [
+        -0.5,
+        0.5,
+        -0.5,
+        0.5
+      ]
+    },
+    "leg_2": {
+      "node": "body_leg_2",
+      "parentNode": "pivot_content_right_hip_pitch",
+      "position": [
+        -0.022,
+        0.0357771,
+        -0.004
+      ],
+      "quaternion": [
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    "ankle_right": {
+      "node": "body_ankle_right",
+      "parentNode": "pivot_content_right_knee",
+      "position": [
+        -0.042,
+        0,
+        -0.026
+      ],
+      "quaternion": [
+        -0.707107,
+        -0.707107,
+        0,
+        0
+      ]
+    }
+  },
+  "source": {
+    "type": "official-mjcf",
+    "url": "https://github.com/pollen-robotics/microduck_rl/blob/29e887ecfbf5d37144759e5a9f8a176dfb83d547/src/mjlab_microduck/robot/microduck/robot_walk.xml",
+    "license": "LicenseRef-Pollen-BY-NC-SA-Unversioned",
+    "omittedInternalMeshes": [],
+    "notes": "Visual geometry simplified, colors and all body/joint origins preserved. Reachy Stewart closed-loop constraints require a separate IK controller or authored head/rod animation.",
+    "commit": "29e887ecfbf5d37144759e5a9f8a176dfb83d547",
+    "softwareLicense": "Apache-2.0",
+    "licenseStatement": "https://github.com/pollen-robotics/microduck_rl/blob/29e887ecfbf5d37144759e5a9f8a176dfb83d547/README.md#license"
+  }
+}

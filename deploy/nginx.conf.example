@@ -1,0 +1,33 @@
+# Include this file inside nginx's http context (for example sites-enabled).
+# Replace game.example.com and configure a certificate before internet production use.
+map $http_upgrade $robot_league_connection {
+    default upgrade;
+    '' close;
+}
+limit_conn_zone $binary_remote_addr zone=robot_league_per_ip:10m;
+server {
+    listen 80;
+    server_name game.example.com;
+    client_max_body_size 16k;
+    gzip on;
+    gzip_vary on;
+    gzip_types text/css text/javascript application/javascript application/json image/svg+xml model/gltf-binary;
+
+    location = /ws {
+        limit_conn robot_league_per_ip 16;
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $robot_league_connection;
+        proxy_read_timeout 65s;
+        proxy_send_timeout 65s;
+        proxy_buffering off;
+    }
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Connection '';
+    }
+}

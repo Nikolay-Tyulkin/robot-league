@@ -1,0 +1,647 @@
+{
+  "id": "reachy",
+  "model": "model.glb",
+  "units": "meters",
+  "upAxis": "Y",
+  "sourceUpAxis": "Z",
+  "quaternionOrder": "xyzw",
+  "jointRotationRule": "Set quaternion = restQuaternion * axisAngle(axis, angle - restAngle). Joint angles use source radians. Ball joints use quaternion rotation. ModelRoot converts source Z-up to Y-up and grounds feet.",
+  "bounds": {
+    "min": [
+      -0.0776972620766841,
+      0,
+      -0.07763218489234192
+    ],
+    "max": [
+      0.07707445561233439,
+      0.3910278838234469,
+      0.07772695121577297
+    ],
+    "size": [
+      0.15477171768901848,
+      0.3910278838234469,
+      0.1553591361081149
+    ]
+  },
+  "triangles": 331302,
+  "joints": {
+    "yaw_body": {
+      "node": "joint_yaw_body",
+      "body": "body_down_3dprint",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -2.792526803190975,
+        2.792526803190879
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "stewart_1": {
+      "node": "joint_stewart_1",
+      "body": "dc15_a01_horn_dummy",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -0.8377580409572196,
+        1.3962634015955222
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "passive_1": {
+      "node": "joint_passive_1",
+      "body": "stewart_link_rod",
+      "type": "ball",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "stewart_2": {
+      "node": "joint_stewart_2",
+      "body": "dc15_a01_horn_dummy_2",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.396263401595614,
+        1.2217304763958803
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "passive_2": {
+      "node": "joint_passive_2",
+      "body": "stewart_link_rod_2",
+      "type": "ball",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "stewart_3": {
+      "node": "joint_stewart_3",
+      "body": "dc15_a01_horn_dummy_3",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -0.8377580409572173,
+        1.3962634015955244
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "passive_3": {
+      "node": "joint_passive_3",
+      "body": "stewart_link_rod_3",
+      "type": "ball",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "stewart_4": {
+      "node": "joint_stewart_4",
+      "body": "dc15_a01_horn_dummy_4",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.3962634015953894,
+        0.8377580409573525
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "passive_4": {
+      "node": "joint_passive_4",
+      "body": "stewart_link_rod_4",
+      "type": "ball",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "stewart_5": {
+      "node": "joint_stewart_5",
+      "body": "dc15_a01_horn_dummy_5",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.2217304763962082,
+        1.396263401595286
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "passive_5": {
+      "node": "joint_passive_5",
+      "body": "stewart_link_rod_5",
+      "type": "ball",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "stewart_6": {
+      "node": "joint_stewart_6",
+      "body": "dc15_a01_horn_dummy_6",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -1.3962634015954123,
+        0.8377580409573296
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "passive_6": {
+      "node": "joint_passive_6",
+      "body": "stewart_link_rod_6",
+      "type": "ball",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "passive_7": {
+      "node": "joint_passive_7",
+      "body": "xl_330",
+      "type": "ball",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "right_antenna": {
+      "node": "joint_right_antenna",
+      "body": "dc15_a01_horn_dummy_7",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "left_antenna": {
+      "node": "joint_left_antenna",
+      "body": "dc15_a01_horn_dummy_8",
+      "type": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "range": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  },
+  "bodies": {
+    "body_foot_3dprint": {
+      "node": "body_body_foot_3dprint",
+      "parentNode": "ModelRoot",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "body_down_3dprint": {
+      "node": "body_body_down_3dprint",
+      "parentNode": "body_body_foot_3dprint",
+      "position": [
+        -2.45997e-7,
+        6.93889e-18,
+        0.0348
+      ],
+      "quaternion": [
+        5.13478e-16,
+        8.88178e-16,
+        -0.707107,
+        0.707107
+      ]
+    },
+    "dc15_a01_horn_dummy": {
+      "node": "body_dc15_a01_horn_dummy",
+      "parentNode": "pivot_content_yaw_body",
+      "position": [
+        -0.0328112,
+        0.0304906,
+        0.0418333
+      ],
+      "quaternion": [
+        0.612372,
+        0.353553,
+        0.353553,
+        0.612372
+      ]
+    },
+    "stewart_link_rod": {
+      "node": "body_stewart_link_rod",
+      "parentNode": "pivot_content_stewart_1",
+      "position": [
+        0.04,
+        -1.6545e-10,
+        0.007
+      ],
+      "quaternion": [
+        0.00414178,
+        -0.0814283,
+        0.863893,
+        0.497033
+      ]
+    },
+    "dc15_a01_horn_dummy_2": {
+      "node": "body_dc15_a01_horn_dummy_2",
+      "parentNode": "pivot_content_yaw_body",
+      "position": [
+        -0.0428112,
+        0.01317,
+        0.0418333
+      ],
+      "quaternion": [
+        -0.353553,
+        0.612372,
+        -0.612372,
+        0.353553
+      ]
+    },
+    "stewart_link_rod_2": {
+      "node": "body_stewart_link_rod_2",
+      "parentNode": "pivot_content_stewart_2",
+      "position": [
+        0.04,
+        1.249e-16,
+        0.007
+      ],
+      "quaternion": [
+        6.31057e-15,
+        1,
+        -1.23174e-14,
+        6.10896e-15
+      ]
+    },
+    "dc15_a01_horn_dummy_3": {
+      "node": "body_dc15_a01_horn_dummy_3",
+      "parentNode": "pivot_content_yaw_body",
+      "position": [
+        -0.01,
+        -0.0436606,
+        0.0418333
+      ],
+      "quaternion": [
+        -5.957e-15,
+        0.707107,
+        0.707107,
+        3.19818e-14
+      ]
+    },
+    "stewart_link_rod_3": {
+      "node": "body_stewart_link_rod_3",
+      "parentNode": "pivot_content_stewart_3",
+      "position": [
+        0.04,
+        8.32667e-17,
+        0.007
+      ],
+      "quaternion": [
+        0.182577,
+        -0.0544081,
+        -0.494063,
+        0.848296
+      ]
+    },
+    "dc15_a01_horn_dummy_4": {
+      "node": "body_dc15_a01_horn_dummy_4",
+      "parentNode": "pivot_content_yaw_body",
+      "position": [
+        0.01,
+        -0.0436606,
+        0.0418333
+      ],
+      "quaternion": [
+        -0.707107,
+        -3.64153e-14,
+        -1.2529e-14,
+        0.707107
+      ]
+    },
+    "stewart_link_rod_4": {
+      "node": "body_stewart_link_rod_4",
+      "parentNode": "pivot_content_stewart_4",
+      "position": [
+        0.04,
+        2.77556e-17,
+        0.007
+      ],
+      "quaternion": [
+        -0.0591779,
+        0.0169265,
+        0.496762,
+        0.865702
+      ]
+    },
+    "dc15_a01_horn_dummy_5": {
+      "node": "body_dc15_a01_horn_dummy_5",
+      "parentNode": "pivot_content_yaw_body",
+      "position": [
+        0.0428112,
+        0.01317,
+        0.0418333
+      ],
+      "quaternion": [
+        0.612372,
+        -0.353553,
+        -0.353553,
+        0.612372
+      ]
+    },
+    "stewart_link_rod_5": {
+      "node": "body_stewart_link_rod_5",
+      "parentNode": "pivot_content_stewart_5",
+      "position": [
+        0.04,
+        5.55112e-17,
+        0.007
+      ],
+      "quaternion": [
+        0.0755679,
+        0.00751236,
+        -0.496993,
+        0.864425
+      ]
+    },
+    "dc15_a01_horn_dummy_6": {
+      "node": "body_dc15_a01_horn_dummy_6",
+      "parentNode": "pivot_content_yaw_body",
+      "position": [
+        0.0328112,
+        0.0304906,
+        0.0418333
+      ],
+      "quaternion": [
+        -0.353553,
+        -0.612372,
+        0.612372,
+        0.353553
+      ]
+    },
+    "stewart_link_rod_6": {
+      "node": "body_stewart_link_rod_6",
+      "parentNode": "pivot_content_stewart_6",
+      "position": [
+        0.04,
+        9.71445e-17,
+        0.007
+      ],
+      "quaternion": [
+        0.865869,
+        0.496711,
+        -0.018366,
+        0.0566689
+      ]
+    },
+    "xl_330": {
+      "node": "body_xl_330",
+      "parentNode": "pivot_content_passive_6",
+      "position": [
+        -0.085,
+        0,
+        0
+      ],
+      "quaternion": [
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    "anonymous_197": {
+      "node": "body_anonymous_197",
+      "parentNode": "pivot_content_passive_7",
+      "position": [
+        -0.0321159,
+        -0.05047,
+        0.00257878
+      ],
+      "quaternion": [
+        -0.44883986005938376,
+        0.19927893786822465,
+        0.7406817690680519,
+        0.45849885704787313
+      ]
+    },
+    "dc15_a01_horn_dummy_7": {
+      "node": "body_dc15_a01_horn_dummy_7",
+      "parentNode": "pivot_content_passive_7",
+      "position": [
+        -0.0948524,
+        0.0197779,
+        -0.00445785
+      ],
+      "quaternion": [
+        0.376401,
+        0.603671,
+        -0.259807,
+        0.652996
+      ]
+    },
+    "dc15_a01_horn_dummy_8": {
+      "node": "body_dc15_a01_horn_dummy_8",
+      "parentNode": "pivot_content_passive_7",
+      "position": [
+        -0.0764135,
+        -0.0324475,
+        0.0840224
+      ],
+      "quaternion": [
+        0.455758,
+        0.848455,
+        -0.0382396,
+        0.266359
+      ]
+    }
+  },
+  "source": {
+    "type": "official-mjcf",
+    "url": "https://github.com/pollen-robotics/reachy_mini/blob/234a978e4426895fc88d864e7f154643aea77f53/src/reachy_mini/descriptions/reachy_mini/mjcf/reachy_mini.xml",
+    "license": "LicenseRef-Pollen-BY-NC-SA-Unversioned",
+    "omittedInternalMeshes": [],
+    "notes": "Visual geometry simplified, colors and all body/joint origins preserved. Reachy Stewart closed-loop constraints require a separate IK controller or authored head/rod animation.",
+    "commit": "234a978e4426895fc88d864e7f154643aea77f53",
+    "softwareLicense": "Apache-2.0",
+    "licenseStatement": "https://github.com/pollen-robotics/reachy_mini/blob/234a978e4426895fc88d864e7f154643aea77f53/README.md#license"
+  }
+}

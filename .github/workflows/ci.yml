@@ -1,0 +1,50 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npm run build:server
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: docker build --tag robot-league:ci .
+      - run: docker run --detach --name robot-league-ci --read-only --cap-drop ALL --security-opt no-new-privileges --publish 127.0.0.1:3000:8080 robot-league:ci
+      - name: Wait for HTTP readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://localhost:3000/healthz; then exit 0; fi
+            sleep 1
+          done
+          docker logs robot-league-ci
+          exit 1
+      - run: node scripts/smoke.mjs http://localhost:3000
+      - if: always()
+        run: docker logs robot-league-ci; docker rm --force robot-league-ci

@@ -1,0 +1,234 @@
+{
+  "typecheck": "passed",
+  "reachy": {
+    "poses": 4492,
+    "solverFailures": 0,
+    "maxPerRodError": [
+      5.131408055952479e-7,
+      1.1487589816380692e-15,
+      2.846243048821613e-7,
+      2.5748507164253317e-7,
+      1.1460960348076917e-7,
+      1.1753255895046845e-7
+    ],
+    "maxGroundError": 5.232860811332785e-10,
+    "maxMotorLimitOverrun": 0
+  },
+  "action": {
+    "tap": {
+      "peakSeconds": 0.09,
+      "recoveryComplete": true
+    },
+    "kick": {
+      "peakSeconds": 0.19,
+      "recoveryComplete": true
+    }
+  },
+  "instances": {
+    "sameKindPlayerAndRefereeIndependent": true,
+    "teamColors": "cyan/orange",
+    "roleAndNewMatchReset": true
+  },
+  "watti": {
+    "shot": {
+      "peakSeconds": 0.19,
+      "maxLift": 0.06,
+      "landingSeconds": 0.42,
+      "landingSpeedUpperBound": 0.00034016602288300385,
+      "contactElbowAngle": 0.8,
+      "minimumHeadForwardDot": 0.9521751067781743
+    },
+    "ledParent": "joint_head_yaw",
+    "innerRadiusMeters": 0.0535,
+    "outerRadiusMeters": 0.0655,
+    "glowIntensity": 0.45,
+    "maxAttachmentError": 1.784851011774168e-16,
+    "headArticulationSamples": 721,
+    "maxCableEndpointError": 5.4603686331063876e-8,
+    "maxCableNormalError": 5.03359837145112e-8,
+    "minCableWindingDot": 0.8627201071605295,
+    "maxJointLimitOverrun": 0,
+    "originalTriangles": 88977,
+    "materialDrawCalls": 19,
+    "materialSummary": [
+      {
+        "mesh": "visual_1_base_link_2",
+        "drawCalls": 3,
+        "materials": [
+          {
+            "name": "watti-printed-taupe",
+            "triangles": 4040
+          },
+          {
+            "name": "watti-motor-black",
+            "triangles": 5856
+          },
+          {
+            "name": "watti-steel-fasteners",
+            "triangles": 14898
+          },
+          {
+            "name": "watti-copper-face",
+            "triangles": 0
+          },
+          {
+            "name": "watti-optics",
+            "triangles": 0
+          }
+        ]
+      },
+      {
+        "mesh": "visual_4_base_rotator_link_5",
+        "drawCalls": 3,
+        "materials": [
+          {
+            "name": "watti-printed-taupe",
+            "triangles": 2200
+          },
+          {
+            "name": "watti-motor-black",
+            "triangles": 2592
+          },
+          {
+            "name": "watti-steel-fasteners",
+            "triangles": 2208
+          },
+          {
+            "name": "watti-copper-face",
+            "triangles": 0
+          },
+          {
+            "name": "watti-optics",
+            "triangles": 0
+          }
+        ]
+      },
+      {
+        "mesh": "visual_7_lower_arm_link_8",
+        "drawCalls": 3,
+        "materials": [
+          {
+            "name": "watti-printed-taupe",
+            "triangles": 1406
+          },
+          {
+            "name": "watti-motor-black",
+            "triangles": 4536
+          },
+          {
+            "name": "watti-steel-fasteners",
+            "triangles": 3782
+          },
+          {
+            "name": "watti-copper-face",
+            "triangles": 0
+          },
+          {
+            "name": "watti-optics",
+            "triangles": 0
+          }
+        ]
+      },
+      {
+        "mesh": "visual_10_upper_arm_link_11",
+        "drawCalls": 3,
+        "materials": [
+          {
+            "name": "watti-printed-taupe",
+            "triangles": 1032
+          },
+          {
+            "name": "watti-motor-black",
+            "triangles": 4618
+          },
+          {
+            "name": "watti-steel-fasteners",
+            "triangles": 3990
+          },
+          {
+            "name": "watti-copper-face",
+            "triangles": 0
+          },
+          {
+            "name": "watti-optics",
+            "triangles": 0
+          }
+        ]
+      },
+      {
+        "mesh": "visual_13_neck_link_14",
+        "drawCalls": 3,
+        "materials": [
+          {
+            "name": "watti-printed-taupe",
+            "triangles": 606
+          },
+          {
+            "name": "watti-motor-black",
+            "triangles": 4344
+          },
+          {
+            "name": "watti-steel-fasteners",
+            "triangles": 3700
+          },
+          {
+            "name": "watti-copper-face",
+            "triangles": 0
+          },
+          {
+            "name": "watti-optics",
+            "triangles": 0
+          }
+        ]
+      },
+      {
+        "mesh": "visual_16_head_link_17",
+        "drawCalls": 4,
+        "materials": [
+          {
+            "name": "watti-printed-taupe",
+            "triangles": 2734
+          },
+          {
+            "name": "watti-motor-black",
+            "triangles": 0
+          },
+          {
+            "name": "watti-steel-fasteners",
+            "triangles": 582
+          },
+          {
+            "name": "watti-copper-face",
+            "triangles": 1856
+          },
+          {
+            "name": "watti-optics",
+            "triangles": 23997
+          }
+        ]
+      }
+    ],
+    "idleRanges": {
+      "shoulder_pitch": [
+        -0.12499975516376759,
+        -0.07500010032771322
+      ],
+      "elbow_pitch": [
+        0.11000016052434113,
+        0.18999960826202814
+      ],
+      "neck_pitch": [
+        -0.07353669676518478,
+        -0.03736962157958963
+      ],
+      "head_yaw": [
+        0.1820002873588381,
+        0.25799996807120446
+      ]
+    },
+    "baseGroundError": 4.336808689942018e-19,
+    "activeCurveError": 2.220446049250313e-16,
+    "ledGeometryDisposals": 1,
+    "ledMaterialDisposals": 1
+  }
+}

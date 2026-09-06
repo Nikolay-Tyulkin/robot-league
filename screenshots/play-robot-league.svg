@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="116" viewBox="0 0 440 116" role="img" aria-labelledby="title desc">
+  <title id="title">Play Robot League</title>
+  <desc id="desc">A large yellow Play Robot League button with a football icon.</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="7" stdDeviation="0" flood-color="#0b0e11" flood-opacity=".82"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M12 15 30 4h368l30 11v72l-30 25H30L12 87Z" fill="#ffbd24" stroke="#101419" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M30 22h368l13 5v22H29Z" fill="#ffe38a" opacity=".72"/>
+    <circle cx="69" cy="57" r="27" fill="#f5f2e7" stroke="#101419" stroke-width="5"/>
+    <path d="m69 39 10 7-4 12H63l-4-12Zm-17 14 11 5m23 0 11-5m-34 14 8 11m16 0 8-11" fill="none" stroke="#101419" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="119" y="65" fill="#101419" font-family="Arial Black, Arial, sans-serif" font-size="34" font-weight="900" letter-spacing="1">PLAY NOW</text>
+    <path d="m369 38 34 19-34 19Z" fill="#101419"/>
+  </g>
+</svg>

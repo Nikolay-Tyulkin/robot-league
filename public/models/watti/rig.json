@@ -1,0 +1,258 @@
+{
+  "id": "watti",
+  "model": "model.glb",
+  "units": "meters",
+  "upAxis": "Y",
+  "sourceUpAxis": "Z",
+  "quaternionOrder": "xyzw",
+  "jointRotationRule": "Set quaternion = restQuaternion * axisAngle(axis, angle - restAngle). Joint angles use source radians. Ball joints use quaternion rotation. ModelRoot converts source Z-up to Y-up and grounds feet.",
+  "bounds": {
+    "min": [
+      -0.11525987833738327,
+      0,
+      -0.11522542685270312
+    ],
+    "max": [
+      0.11526302993297577,
+      0.43884239508731526,
+      0.11522542685270312
+    ],
+    "size": [
+      0.23052290827035904,
+      0.43884239508731526,
+      0.23045085370540624
+    ]
+  },
+  "triangles": 88977,
+  "joints": {
+    "base_yaw": {
+      "node": "joint_base_yaw",
+      "body": "base_rotator_link",
+      "type": "revolute",
+      "axis": [
+        -2.767749533799658e-16,
+        2.002383229841571e-14,
+        -1.0000000000000333
+      ],
+      "range": [
+        -2.0943951023931953,
+        2.0943951023931953
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "pivotInSourceRoot": [
+        0.00010261281182626298,
+        -0.00013300518691257703,
+        0.06740000000000014
+      ]
+    },
+    "shoulder_pitch": {
+      "node": "joint_shoulder_pitch",
+      "body": "lower_arm_link",
+      "type": "revolute",
+      "axis": [
+        -0.004320737007249277,
+        0.9999906655722878,
+        1.9987934005464554e-14
+      ],
+      "range": [
+        -1.631882850614698,
+        1.631882850614698
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "pivotInSourceRoot": [
+        -0.0022895184332498266,
+        0.03275696605214701,
+        0.10890000000000194
+      ]
+    },
+    "elbow_pitch": {
+      "node": "joint_elbow_pitch",
+      "body": "upper_arm_link",
+      "type": "revolute",
+      "axis": [
+        -0.004320737007245971,
+        0.9999906655723466,
+        2.0478538293925758e-14
+      ],
+      "range": [
+        -1.6929693744344996,
+        2.2689280275926285
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "pivotInSourceRoot": [
+        0.005225534137660426,
+        0.029289404250194242,
+        0.21139999999968317
+      ]
+    },
+    "neck_pitch": {
+      "node": "joint_neck_pitch",
+      "body": "neck_link",
+      "type": "revolute",
+      "axis": [
+        -0.004320737007239489,
+        0.9999906655722914,
+        2.0201579376416272e-14
+      ],
+      "range": [
+        -1.6929693744344996,
+        2.2689280275926285
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "pivotInSourceRoot": [
+        0.013322900304961194,
+        0.02932439116643546,
+        0.2888398569017482
+      ]
+    },
+    "head_yaw": {
+      "node": "joint_head_yaw",
+      "body": "head_link",
+      "type": "revolute",
+      "axis": [
+        0.015423004505864459,
+        0.00006663936835514228,
+        0.999881056171786
+      ],
+      "range": [
+        -2.0943951023931953,
+        2.0943951023931953
+      ],
+      "restAngle": 0,
+      "restQuaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "pivotInSourceRoot": [
+        0.014743920051336243,
+        -0.00006974335797323226,
+        0.37272987751455466
+      ]
+    }
+  },
+  "bodies": {
+    "base_link": {
+      "node": "body_base_link",
+      "parentNode": "ModelRoot",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "base_rotator_link": {
+      "node": "body_base_rotator_link",
+      "parentNode": "body_base_link",
+      "position": [
+        0.00010261281182626298,
+        -0.00013300518691257703,
+        0.06740000000000014
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "lower_arm_link": {
+      "node": "body_lower_arm_link",
+      "parentNode": "joint_base_yaw",
+      "position": [
+        -0.0023921312450760897,
+        0.03288997123905958,
+        0.0415000000000018
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "upper_arm_link": {
+      "node": "body_upper_arm_link",
+      "parentNode": "joint_shoulder_pitch",
+      "position": [
+        0.007515052570910253,
+        -0.0034675618019527656,
+        0.10249999999968123
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "neck_link": {
+      "node": "body_neck_link",
+      "parentNode": "joint_elbow_pitch",
+      "position": [
+        0.008097366167300769,
+        0.00003498691624121905,
+        0.07743985690206501
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    "head_link": {
+      "node": "body_head_link",
+      "parentNode": "joint_neck_pitch",
+      "position": [
+        0.0014210197463750494,
+        -0.029394134524408692,
+        0.08389002061280648
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  },
+  "source": {
+    "type": "user-provided-fusion-snapshot",
+    "path": "Watti_fusion_snapshot.json",
+    "generatedAt": "2026-08-07T12:25:41Z",
+    "license": "CC-BY-NC-4.0",
+    "notes": "All six component-local STL visuals transformed using current Fusion component_frame_in_root. Joint origins and axes use important snapshot joints in root-aligned local pivot frames. Snapshot current position_rad=0 is preserved; spring rest_rad is not applied. The older URDF does not match these STL rest frames and is intentionally superseded."
+  }
+}

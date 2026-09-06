@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "noEmit": false,
+    "incremental": false,
+    "allowJs": false,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": ".",
+    "outDir": ".server-build"
+  },
+  "include": ["server/**/*.ts", "game/sim.ts"]
+}
