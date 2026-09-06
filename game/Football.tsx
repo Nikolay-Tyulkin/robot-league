@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import type { GameEngine, EngineInfo } from './engine';
 import { ROBOT_KINDS, ROBOT_NAMES, isRobotKind, type RobotKind, type SoloOpponent } from './sim';
-import { GameSocket, type RoomInfo, type ServerMessage } from './network';
+import { GameSocket, subscribeArenaPresence, type RoomInfo, type ServerMessage } from './network';
 import { TouchControls } from './TouchControls';
 import { TouchInput, subscribeTouchLayout, touchLayoutSnapshot, desktopSnapshot, subscribePortrait, portraitSnapshot } from './touch-input';
 import { RobotCredits } from './RobotCredits';
@@ -22,6 +22,8 @@ export function Football() {
   const [screen, setScreen] = useState<'menu' | 'connecting' | 'queue' | 'room' | 'playing'>('menu');
   const [room, setRoom] = useState<RoomInfo | null>(null), [status, setStatus] = useState(''), [ping, setPing] = useState(0);
   const [connected, setConnected] = useState(false);
+  const [onlinePlayers, setOnlinePlayers] = useState<number | null>(null);
+  const [queuedPlayers, setQueuedPlayers] = useState<number | null>(null);
   const [muted, setMuted] = useState(false), [help, setHelp] = useState(false), [copied, setCopied] = useState(false);
   const [invite, setInvite] = useState(''), [joinCode, setJoinCode] = useState('');
   const [touch] = useState(() => new TouchInput());
@@ -42,6 +44,7 @@ export function Football() {
     });
     return () => { disposed = true; engine.current?.dispose(); engine.current = null; socket.current?.close(); };
   }, [touch]);
+  useEffect(() => subscribeArenaPresence((online, queued) => { setOnlinePlayers(online); setQueuedPlayers(queued); }), []);
   useEffect(() => {
     const game = engine.current; game?.setControlsBlocked(help || portrait);
     if (portrait && game?.mode === 'solo' && game.state.phase !== 'paused' && game.state.phase !== 'finished') game.pause();
@@ -107,6 +110,7 @@ export function Football() {
       <section className="menu-panel">
         {screen === 'menu' && menuPage === 'home' ? <>
           <div className="home-heading"><div className="label-tape"><Zap size={15} fill="currentColor" /> WELCOME TO THE GARAGE</div><h1>SMALL BOTS.<br /><span>BIG ATTITUDE.</span></h1><p className="intro">Two robots. One ball. Your league.</p></div>
+          <p className="online-count" aria-live="polite"><span className="live-dot" />{onlinePlayers === null ? 'ARENA OFFLINE' : `${onlinePlayers} ${onlinePlayers === 1 ? 'PLAYER' : 'PLAYERS'} ONLINE`}</p>
           <nav className="mode-choices" aria-label="Game modes">
             <Button className="mode-choice primary-mode" onClick={() => setMenuPage('solo')}><Gamepad2 /><span>SINGLE PLAYER<small>YOUR ROBOT. YOUR AI RIVAL.</small></span><ArrowRight /></Button>
             <Button className="mode-choice" onClick={() => setMenuPage('multiplayer')}><Users /><span>MULTIPLAYER<small>QUICK MATCH OR PLAY WITH A FRIEND</small></span><ArrowRight /></Button>
@@ -130,7 +134,7 @@ export function Football() {
           </div> : room ? <div className="setup-grid room-setup">
             <div className="setup-column"><div className="section-label">YOUR ROBOT</div><RobotPicker disabled={!connected} kind={room.players[room.player]?.kind ?? kind} onChange={robot => { setKind(robot); socket.current?.selectRobot(robot); }} /><output className="mode-description room-selection-hint">{!connected ? status || 'Reconnecting…' : <>Choose your bot, then press Ready.<br />Changing robots clears both ready checks.</>}</output><Button className="play-button" disabled={!connected || room.players.length < 2 || !room.players.every(p => p.connected) || room.players[room.player]?.ready} onClick={() => socket.current?.send({type:'ready'})}><Check /><span>{room.players[room.player]?.ready ? 'YOU’RE READY' : 'READY!'}</span></Button></div>
             <div className="setup-column room-details"><div className="room-code"><small>ROOM CODE</small><strong>{room.code}</strong><Button variant="ghost" aria-label="Copy invitation" onClick={copyInvite}>{copied ? <Check /> : <Copy />}</Button></div>{room.players.map((p,i) => <div className="room-player" key={i}><span className={i === 0 ? 'cyan-dot' : 'orange-dot'} /><span>{p.name}{i === room.player ? ' · YOU' : ''}<small>{ROBOT_NAMES[p.kind].toUpperCase()}</small></span><span>{!p.connected ? 'OFFLINE' : p.ready ? 'READY' : 'CHOOSING'}</span></div>)}{room.players.length < 2 && <p className="waiting">Share the link or code.<br />Waiting for a second player.</p>}</div>
-          </div> : <div className="search-status">{!error && <LoaderCircle className="spin" size={32} />}<p>{status || 'Connecting to the garage…'}</p><p className="mode-description">You’ll choose your robot in the room.</p></div>}
+</div> : <div className="search-status">{!error && <LoaderCircle className="spin" size={32} />}<p>{status || 'Connecting to the garage…'}</p>{screen === 'queue' && !error && <div className="queue-count" aria-live="polite"><strong>{queuedPlayers === null ? 'QUEUE STATUS UNAVAILABLE' : `${queuedPlayers} ${queuedPlayers === 1 ? 'PLAYER' : 'PLAYERS'} SEARCHING`}</strong><p className="mode-description">{queuedPlayers === 1 ? 'Just you for now. Waiting for another player.' : queuedPlayers !== null && queuedPlayers > 1 ? 'Including you. Pairing available players…' : queuedPlayers === 0 ? 'Updating your search status…' : 'Your search continues while the count reconnects.'}</p></div>}<p className="mode-description">You’ll choose your robot in the room.</p></div>}
         </>}
         {error && <div className="error-message" role="alert">{error}</div>}
         {!ready && !error && <div className="asset-loading"><LoaderCircle size={16} className="spin" /> ASSEMBLING ROBOTS…</div>}

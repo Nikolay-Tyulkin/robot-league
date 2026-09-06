@@ -9,7 +9,7 @@ import { resolve } from 'node:path';
 
 type Seat = { ws: WebSocket | null; token: string; name: string; kind: RobotKind; ready: boolean; input: Input; lastSeen: number; lastInput: number; rematch: boolean };
 type Room = { code: string; private: boolean; seats: Seat[]; state?: MatchState; resumePhase?: Phase; disconnectedAt?: number; updatedAt: number };
-type Client = { room?: Room; seat?: number; queued?: boolean; name?: string; kind?: RobotKind; messages: number; window: number; actions: number; actionWindow: number; ip: string };
+type Client = { room?: Room; seat?: number; queued?: boolean; presence?: boolean; name?: string; kind?: RobotKind; messages: number; window: number; actions: number; actionWindow: number; ip: string };
 export function allowedOrigin(origin: string | undefined, host: string | undefined, allowlist?: string[]) {
   if (!origin) return !allowlist?.length;
   if (allowlist?.length) return allowlist.includes(origin);
@@ -33,10 +33,12 @@ export function createGameServer(options: { port?: number; host?: string; reconn
   const alive = new WeakMap<WebSocket, boolean>();
   const reconnectMs = options.reconnectMs ?? 15000;
   const send = (ws: WebSocket | null, data: object) => { if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 256 * 1024) ws.send(JSON.stringify(data)); };
+  const onlineVisitors = () => [...clients.values()].filter(client => client.presence).length;
+  const broadcastPresence = () => { const message = {type:'presence',online:onlineVisitors(),queued:queue.length}; for (const [ws, client] of clients) if (client.presence) send(ws, message); };
   const error = (ws: WebSocket, message: string) => send(ws, { type:'error', message });
   const serveStatic = options.staticDirectory ? staticHandler(options.staticDirectory) : undefined;
   const server = http.createServer((req, res) => {
-    if (req.url === '/healthz') { res.writeHead(200, {'content-type':'application/json'}); res.end(JSON.stringify({status:'ok',rooms:rooms.size,queued:queue.length})); }
+    if (req.url === '/healthz') { res.writeHead(200, {'content-type':'application/json'}); res.end(JSON.stringify({status:'ok',rooms:rooms.size,queued:queue.length,online:onlineVisitors()})); }
     else if (serveStatic) void serveStatic(req, res);
     else { res.writeHead(404); res.end('Not found'); }
   });
@@ -47,7 +49,7 @@ export function createGameServer(options: { port?: number; host?: string; reconn
     if (stopping || req.url !== '/ws' || !allowedOrigin(origin, req.headers.host, allowed) || wss.clients.size >= maxConnections || (ipCounts.get(ip) ?? 0) >= maxPerIp) { socket.write('HTTP/1.1 403 Forbidden\r\n\r\n'); socket.destroy(); return; }
     wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
   });
-  function removeQueue(ws: WebSocket) { const index = queue.indexOf(ws); if (index >= 0) queue.splice(index, 1); const c = clients.get(ws); if (c) c.queued = false; }
+  function removeQueue(ws: WebSocket) { const index = queue.indexOf(ws); if (index >= 0) queue.splice(index, 1); const c = clients.get(ws); if (c) c.queued = false; if (index >= 0) broadcastPresence(); }
   function removeRoom(room: Room) {
     for (const s of room.seats) { const c = s.ws ? clients.get(s.ws) : undefined; if (c?.room === room) { c.room = undefined; c.seat = undefined; } }
     rooms.delete(room.code);
@@ -105,6 +107,7 @@ export function createGameServer(options: { port?: number; host?: string; reconn
       let m: Record<string,unknown>; try { const buffer = Array.isArray(raw) ? Buffer.concat(raw) : raw instanceof ArrayBuffer ? Buffer.from(raw) : raw; m=JSON.parse(buffer.toString('utf8')); } catch {error(ws,'Invalid message.');return;}
       if(!m || typeof m!=='object' || typeof m.type!=='string') {error(ws,'Invalid message.');return;}
       if(m.type==='ping') {send(ws,{type:'pong',sent:typeof m.sent==='number'&&Number.isFinite(m.sent)?m.sent:0});return;}
+      if(m.type==='presence') { if (!c.presence) { c.presence=true; broadcastPresence(); } return; }
       if(m.type==='input') {
         if(!c.room?.state || c.seat===undefined || !validInput(m.input)) return;
         const p=c.room.seats[c.seat], i=m.input;
@@ -166,9 +169,10 @@ export function createGameServer(options: { port?: number; host?: string; reconn
           const other=clients.get(opponent)!;other.queued=false;
           const room=makeRoom(opponent,other.name||'Player',other.kind??'watti',false); join(room,ws,nick,kind);
         } else {c.queued=true;c.name=nick;c.kind=kind;queue.push(ws);send(ws,{type:'queued'});}
+        broadcastPresence();
       }
     });
-    ws.on('close',()=>{leave(ws,true);clients.delete(ws);const n=(ipCounts.get(ip)??1)-1;if(n)ipCounts.set(ip,n);else ipCounts.delete(ip);});
+    ws.on('close',()=>{leave(ws,true);clients.delete(ws);broadcastPresence();const n=(ipCounts.get(ip)??1)-1;if(n)ipCounts.set(ip,n);else ipCounts.delete(ip);});
     ws.on('error',()=>{});
   });
   let ticks=0;

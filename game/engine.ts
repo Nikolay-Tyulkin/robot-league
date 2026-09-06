@@ -116,7 +116,7 @@ export class GameEngine {
     return { seq: ++this.sequence, x: clamp(Number(has('KeyD', 'ArrowRight')) - Number(has('KeyA', 'ArrowLeft')) + touch.x, -1, 1), z: clamp(Number(has('KeyS', 'ArrowDown')) - Number(has('KeyW', 'ArrowUp')) + touch.z, -1, 1), sprint: has('ShiftLeft', 'ShiftRight') || touch.sprint, charge: has('Space') || touch.charge, shoot: this.shot || touch.shoot, tap: this.tap || touch.tap };
   }
   startSolo(kind: RobotKind, name: string, choice: SoloOpponent = 'random') {
-    const opponent = selectSoloOpponent(choice);
+    const opponent = selectSoloOpponent(choice, kind);
     this.mode = 'solo'; this.player = 0; this.state = createMatch(kind, [name || 'Player', `${ROBOT_NAMES[opponent]} · AI`], opponent);
     this.robots.forEach(robot => robot.resetPose());
     this.lastEvent = 0; this.clearControls(); this.onInput = undefined; this.stepDistance = [0, 0]; this.sound.unlock(); this.notify();

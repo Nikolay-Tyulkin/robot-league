@@ -5,11 +5,12 @@ export function isRobotKind(value: unknown): value is RobotKind {
   return typeof value === 'string' && ROBOT_KINDS.some(kind => kind === value);
 }
 export type SoloOpponent = RobotKind | 'random';
-export function selectSoloOpponent(choice: SoloOpponent, rng: () => number = Math.random): RobotKind {
+export function selectSoloOpponent(choice: SoloOpponent, playerKind?: RobotKind, rng: () => number = Math.random): RobotKind {
   if (choice !== 'random') return choice;
+  const choices = playerKind ? ROBOT_KINDS.filter(kind => kind !== playerKind) : ROBOT_KINDS;
   const sample = rng();
-  const index = Number.isFinite(sample) ? Math.max(0, Math.min(ROBOT_KINDS.length - 1, Math.floor(sample * ROBOT_KINDS.length))) : 0;
-  return ROBOT_KINDS[index];
+  const index = Number.isFinite(sample) ? Math.max(0, Math.min(choices.length - 1, Math.floor(sample * choices.length))) : 0;
+  return choices[index];
 }
 export type Phase = 'countdown' | 'play' | 'goal' | 'finished' | 'paused';
 export type Input = { seq: number; x: number; z: number; sprint: boolean; charge: boolean; shoot: boolean; tap: boolean };

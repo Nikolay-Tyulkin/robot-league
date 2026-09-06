@@ -35,19 +35,19 @@ void test('robot identity validation accepts all playable kinds and rejects untr
   for (const value of [undefined, null, '', 'random', 'Reachy', '__proto__', 1, {}, ['reachy']]) assert.equal(isRobotKind(value), false);
 });
 
-void test('solo opponent selection preserves explicit choices and random includes all three mirrors', () => {
+void test('solo opponent selection preserves explicit choices and random excludes the player robot', () => {
   for (const kind of ROBOT_KINDS) {
-    assert.equal(selectSoloOpponent(kind, () => { throw new Error('Explicit choice must not sample randomness'); }), kind);
-    for (let i = 0; i < ROBOT_KINDS.length; i++) {
-      const opponent = selectSoloOpponent('random', () => (i + .5) / ROBOT_KINDS.length);
+    assert.equal(selectSoloOpponent(kind, kind, () => { throw new Error('Explicit choice must not sample randomness'); }), kind);
+    for (let i = 0; i < ROBOT_KINDS.length - 1; i++) {
+      const opponent = selectSoloOpponent('random', kind, () => (i + .5) / (ROBOT_KINDS.length - 1));
       const match = createMatch(kind, undefined, opponent);
-      assert.equal(match.players[1].kind, ROBOT_KINDS[i]);
+      assert.notEqual(opponent, kind);
       assert.equal(match.players[0].kind, kind);
     }
   }
-  assert.equal(selectSoloOpponent('random', () => 0), 'watti');
-  assert.equal(selectSoloOpponent('random', () => 1), 'reachy');
-  assert.equal(selectSoloOpponent('random', () => NaN), 'watti');
+  assert.equal(selectSoloOpponent('random', 'watti', () => 0), 'microduck');
+  assert.equal(selectSoloOpponent('random', 'watti', () => 1), 'reachy');
+  assert.equal(selectSoloOpponent('random', 'watti', () => NaN), 'microduck');
 });
 
 void test('match initialization supports all nine pairings with independent players and correct names', () => {

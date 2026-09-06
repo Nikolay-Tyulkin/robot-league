@@ -58,6 +58,25 @@ void test('private match admits two players and server owns inputs, kick edges a
   room.seats[0].lastInput = Date.now() - 400; f.app.tick(); assert.equal(room.seats[0].input.x,0);
 });
 
+void test('presence reports queue entry, matching, cancellation and disconnection', async t => {
+  const f = await fixture(); t.after(() => f.app.close());
+  const observer = await f.connect(); observer.send({type:'presence'});
+  assert.equal((await observer.wait('presence')).queued, 0);
+  const a = await f.connect(), b = await f.connect();
+  a.send({type:'queue',name:'A'}); await a.wait('queued');
+  assert.equal((await observer.wait('presence')).queued, 1);
+  b.send({type:'queue',name:'B'}); await b.wait('room');
+  assert.equal((await observer.wait('presence')).queued, 0);
+  const waiting = await f.connect(); waiting.send({type:'queue',name:'C'}); await waiting.wait('queued');
+  assert.equal((await observer.wait('presence')).queued, 1);
+  waiting.send({type:'leave'});
+  assert.equal((await observer.wait('presence')).queued, 0);
+  waiting.send({type:'queue',name:'C'}); await waiting.wait('queued');
+  assert.equal((await observer.wait('presence')).queued, 1);
+  waiting.ws.close();
+  assert.equal((await observer.wait('presence')).queued, 0);
+});
+
 void test('queue pairs once and removes a disconnected waiting peer', async t => {
   const f = await fixture(); t.after(() => f.app.close()); const a = await f.connect(), b = await f.connect();
   a.send({type:'queue',name:'A'}); await a.wait('queued'); b.send({type:'queue',name:'B'});

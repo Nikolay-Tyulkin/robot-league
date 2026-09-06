@@ -6,7 +6,32 @@ export type ServerMessage =
   | { type: 'state'; state: MatchState; player: number }
   | { type: 'error'; message: string }
   | { type: 'info'; message: string }
-  | { type: 'pong'; sent: number };
+  | { type: 'pong'; sent: number }
+  | { type: 'presence'; online: number; queued: number };
+
+export function gameServerAddress() {
+  const configured = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
+  return configured || `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
+}
+
+export function subscribeArenaPresence(onChange: (online: number | null, queued: number | null) => void) {
+  let socket: WebSocket | undefined, retry: ReturnType<typeof setTimeout> | undefined, stopped = false;
+  const open = () => {
+    const ws = new WebSocket(gameServerAddress()); socket = ws;
+    ws.onopen = () => { if (socket === ws && !stopped) ws.send(JSON.stringify({ type: 'presence' })); };
+    ws.onmessage = event => {
+      let message: ServerMessage; try { message = JSON.parse(event.data); } catch { return; }
+      if (message.type === 'presence' && Number.isSafeInteger(message.online) && message.online >= 0) onChange(message.online, Number.isSafeInteger(message.queued) && message.queued >= 0 ? message.queued : null);
+    };
+    ws.onclose = () => {
+      if (socket !== ws || stopped) return;
+      onChange(null, null); retry = setTimeout(open, 2000);
+    };
+    ws.onerror = () => { /* onclose schedules the retry */ };
+  };
+  open();
+  return () => { stopped = true; if (retry) clearTimeout(retry); if (socket) { socket.onopen = socket.onmessage = socket.onclose = null; socket.close(); } };
+}
 
 export class GameSocket {
   private ws?: WebSocket;
@@ -21,10 +46,8 @@ export class GameSocket {
   constructor(private onMessage: (message: ServerMessage) => void, private onStatus: (text: string) => void, private onConnection: (connected: boolean) => void = () => {}) {}
   connect(initial: object) { this.pending = initial; this.intentional = false; this.reconnectUntil = 0; this.open(); }
   private open() {
-    const configured = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
-    const address = configured || `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
     this.onStatus(this.token ? 'Rejoining your match…' : 'Connecting to Robot League…');
-    const ws = new WebSocket(address); this.ws = ws;
+    const ws = new WebSocket(gameServerAddress()); this.ws = ws;
     const active = () => this.ws === ws && !this.intentional;
     let lastReceived = Date.now(), lastPing = 0, resuming = !!this.token;
     this.connectTimeout = setTimeout(() => { if (active() && ws.readyState !== WebSocket.OPEN) { ws.onclose = null; ws.close(); disconnected(); } }, 6000);

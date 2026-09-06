@@ -35,6 +35,19 @@ async function server(t: TestContext, options: Parameters<typeof createGameServe
   return { app, port };
 }
 
+void test('health endpoint reports visitors that identify their presence', async t => {
+  const { port } = await server(t);
+  const before = JSON.parse((await request(port, '/healthz')).body.toString('utf8'));
+  assert.equal(before.online, 0);
+  const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => socket.close());
+  await once(socket, 'open');
+  socket.send(JSON.stringify({type:'presence'}));
+  await once(socket, 'message');
+  const after = JSON.parse((await request(port, '/healthz')).body.toString('utf8'));
+  assert.equal(after.online, 1);
+});
+
 function request(port: number, path: string, method = 'GET', headers: Record<string, string> = {}) {
   return new Promise<{status: number; headers: http.IncomingHttpHeaders; body: Buffer}>((resolve, reject) => {
     const req = http.request({ hostname: '127.0.0.1', port, path, method, headers, agent: false }, res => {

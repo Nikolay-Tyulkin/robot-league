@@ -8,6 +8,7 @@ type Rig = { id: string; bounds: { size: number[] }; joints: Record<string, Join
 type CableAnchor = { node: THREE.Object3D; point: THREE.Vector3 };
 type CableStrand = { start: CableAnchor; end: CableAnchor; back: THREE.Vector3; slack: number; radius: number };
 export type RobotRole = 'player' | 'referee';
+const WATTI_REST = { shoulder: -1.0, elbow: 1.7, neck: -.7 };
 
 /** The forward head stroke peaks at the same instant as the simulation's contact. */
 export function reachyActionPose(p: Pick<Player, 'action' | 'actionTime' | 'actionPower' | 'charge'>) {
@@ -293,6 +294,11 @@ export class Robot {
     this.model.position.set(0, 0, 0); this.model.quaternion.copy(this.modelRest);
     this.model.scale.setScalar((this.role === 'referee' ? 1.6 : 1.75) / this.rig.bounds.size[1]);
     for (const joint of this.joints.values()) joint.object.quaternion.copy(joint.rest);
+    if (this.kind === 'watti') {
+      this.setJoint('shoulder_pitch', WATTI_REST.shoulder);
+      this.setJoint('elbow_pitch', WATTI_REST.elbow);
+      this.setJoint('neck_pitch', WATTI_REST.neck);
+    }
     if (this.head && this.headRest) {
       this.head.position.copy(this.headRest.pos); this.head.quaternion.copy(this.headRest.quat);
       // The solver remembers the previous valid pose; reset that history as well.
@@ -378,12 +384,15 @@ export class Robot {
       this.model.position.y = hop * .19 * activity * (1 - shotWeight) + hitHop + (celebrating ? Math.abs(Math.sin(time * 7)) * .25 : 0);
       // Fold the elbow the other way and balance shoulder/neck motion so the
       // combined head pitch stays +.16 rad toward the ball at full contact.
-      this.setJoint('shoulder_pitch', -.1 + squash * .18 * activity - p.charge * .23 + hitStroke * .5 + breath * .025);
-      this.setJoint('elbow_pitch', .15 - squash * .28 * activity + p.charge * .36 + hitStroke * .65 - breath * .04);
-      this.setJoint('neck_pitch', -.06 + squash * .1 * activity - p.charge * .12 - hitStroke * .99 + breath * .015 + sway * .009);
+      // Watti waits in the lower, folded posture of the physical arm instead
+      // of standing fully extended between plays.
+      const gait = squash * activity * (1 - shotWeight);
+      this.setJoint('shoulder_pitch', WATTI_REST.shoulder + gait * .18 - p.charge * .23 + hitStroke * .5 + breath * .025);
+      this.setJoint('elbow_pitch', WATTI_REST.elbow - gait * .28 + p.charge * .26 + hitStroke * .35 - breath * .04);
+      this.setJoint('neck_pitch', WATTI_REST.neck + gait * .1 - p.charge * .03 - hitStroke * .69 + breath * .015);
       this.setJoint('base_yaw', Math.sin(phase * .5) * .055 * activity + (p.action === 'tap' ? kick * .8 : 0));
       const dx = s.ball.x - p.x, dz = s.ball.z - p.z;
-      this.setJoint('head_yaw', clamp(Math.atan2(Math.sin(Math.atan2(dx, dz) - p.yaw), Math.cos(Math.atan2(dx, dz) - p.yaw)), -.4, .4) * .55 + (celebrating ? Math.sin(time * 9) * .35 : 0) + sway * .038);
+      this.setJoint('head_yaw', clamp(Math.atan2(Math.sin(Math.atan2(dx, dz) - p.yaw), Math.cos(Math.atan2(dx, dz) - p.yaw)), -.4, .4) * .55 * activity + (celebrating ? Math.sin(time * 9) * .35 : 0) + sway * .018);
       this.updateWattiCables();
     } else if (this.kind === 'reachy') {
       this.reachyPlayer(p, s, time, activity, celebrating);
