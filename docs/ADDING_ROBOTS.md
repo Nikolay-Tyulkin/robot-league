@@ -45,6 +45,7 @@ Do not send a new robot through another kind’s animation branch. Add an explic
 | `game/sim.ts`: `ROBOT_KINDS`, `ROBOT_NAMES`, `RobotKind`, `createMatch` | Extend the shared kind/name list and review deterministic defaults and solo randomization |
 | `game/sim.ts`: `SKILLS`, `skillsStep`, `aiInput` | Define the named skill, bounded effects and tactical AI use; preserve the shared 10-second cooldown and input deduplication |
 | `server/index.ts`: kind parsing, `join`, `select-robot`, queue pairing, `begin` | Admit the new kind, allocate valid opponents, preserve room selection when starting/rematching and sender ownership/readiness rules |
+| `game/wire.ts` and `tests/wire.test.ts` | Preserve the binary schema and lossless round trips for the new kind and any new state fields; version incompatible protocol changes |
 | `game/engine.ts`: `load`, `startSolo`, `renderState` | Load the asset; name the AI correctly; set appropriate footsteps/presentation |
 | `game/robots.ts`: `load`, `animate`, cleanup | Add orientation/material/rig adaptation and animation; retain resource disposal |
 | `game/sound.ts`: `step` | Choose an intentional footstep/servo character |

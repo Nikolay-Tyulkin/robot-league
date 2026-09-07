@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import type { GameEngine, EngineInfo } from './engine';
 import { ROBOT_KINDS, ROBOT_NAMES, SKILLS, SKILL_COOLDOWN, isRobotKind, type RobotKind, type SoloOpponent } from './sim';
-import { GameSocket, subscribeArenaPresence, type RoomInfo, type ServerMessage } from './network';
+import { GameSocket, subscribeArenaPresence, type AdmissionInfo, type ArenaPresence, type RoomInfo, type ServerMessage } from './network';
 import { TouchControls } from './TouchControls';
 import { TouchInput, subscribeTouchLayout, touchLayoutSnapshot, desktopSnapshot, subscribePortrait, portraitSnapshot } from './touch-input';
 import { RobotCredits } from './RobotCredits';
@@ -20,11 +20,12 @@ export function Football() {
   const [robotsOpen, setRobotsOpen] = useState(false);
   const [opponent, setOpponent] = useState<SoloOpponent>('random');
   const [name, setName] = useState('Player'), [info, setInfo] = useState<EngineInfo | null>(null);
-  const [screen, setScreen] = useState<'menu' | 'connecting' | 'queue' | 'room' | 'playing'>('menu');
+  const [screen, setScreen] = useState<'menu' | 'connecting' | 'admission' | 'queue' | 'room' | 'playing'>('menu');
   const [room, setRoom] = useState<RoomInfo | null>(null), [status, setStatus] = useState(''), [ping, setPing] = useState(0);
   const [connected, setConnected] = useState(false);
   const [onlinePlayers, setOnlinePlayers] = useState<number | null>(null);
   const [queuedPlayers, setQueuedPlayers] = useState<number | null>(null);
+  const [presence, setPresence] = useState<ArenaPresence | null>(null), [admission, setAdmission] = useState<AdmissionInfo | null>(null);
   const [muted, setMuted] = useState(false), [help, setHelp] = useState(false), [copied, setCopied] = useState(false);
   const [invite, setInvite] = useState(''), [joinCode, setJoinCode] = useState('');
   const [touch] = useState(() => new TouchInput());
@@ -45,7 +46,7 @@ export function Football() {
     });
     return () => { disposed = true; engine.current?.dispose(); engine.current = null; socket.current?.close(); };
   }, [touch]);
-  useEffect(() => subscribeArenaPresence((online, queued) => { setOnlinePlayers(online); setQueuedPlayers(queued); }), []);
+  useEffect(() => subscribeArenaPresence((online, queued, stats) => { setOnlinePlayers(online); setQueuedPlayers(queued); setPresence(stats ?? null); }), []);
   useEffect(() => {
     const game = engine.current; game?.setControlsBlocked(help || portrait);
     if (portrait && game?.mode === 'solo' && game.state.phase !== 'paused' && game.state.phase !== 'finished') game.pause();
@@ -56,11 +57,17 @@ export function Football() {
     if (!open && helpPaused.current) { helpPaused.current = false; if (game?.mode === 'solo' && game.state.phase === 'paused') game.pause(); }
   }
   function rememberName() { const n = name.trim().slice(0, 20) || 'Player'; setName(n); localStorage.setItem('watti.nickname', n); return n; }
-  function solo() { socket.current?.close(); setError(''); engine.current?.startSolo(kind, rememberName(), opponent); setScreen('playing'); setRoom(null); (document.activeElement as HTMLElement)?.blur(); }
-  function menu(page: 'home' | 'multiplayer' = 'home') { setMenuPage(page); socket.current?.close(); socket.current = null; engine.current?.menu(); setScreen('menu'); setRoom(null); setError(''); setStatus(''); }
+  function solo() { socket.current?.close(); socket.current = null; setAdmission(null); setError(''); engine.current?.startSolo(kind, rememberName(), opponent); setScreen('playing'); setRoom(null); (document.activeElement as HTMLElement)?.blur(); }
+  function menu(page: 'home' | 'multiplayer' = 'home') { setMenuPage(page); socket.current?.close(); socket.current = null; engine.current?.menu(); setScreen('menu'); setRoom(null); setAdmission(null); setError(''); setStatus(''); }
   function online(type: 'queue' | 'create' | 'join') {
-    socket.current?.close(); setError(''); setRoom(null); setScreen('connecting');
+    socket.current?.close(); setError(''); setRoom(null); setAdmission(null); setScreen('connecting');
     const handler = (message: ServerMessage) => {
+      if (socket.current !== client) return;
+      if (message.type === 'presence') { setPresence(message); setOnlinePlayers(message.online); setQueuedPlayers(message.queued); }
+      if (message.type === 'admission') {
+        setAdmission(message); setPresence({ ...message, type: 'presence' }); setOnlinePlayers(message.online); setQueuedPlayers(message.queued);
+        setError(''); setScreen(message.status === 'waiting' ? 'admission' : 'connecting');
+      }
       if (message.type === 'queued') { setError(''); setScreen('queue'); setStatus('Looking for an opponent…'); }
       if (message.type === 'room') { setError(''); setRoom(message.room); setScreen(prev => prev === 'playing' ? prev : 'room'); setStatus('Room ready'); }
       if (message.type === 'state') {
@@ -121,14 +128,14 @@ export function Football() {
       <section className="menu-panel">
         {screen === 'menu' && menuPage === 'home' ? <>
           <div className="home-heading"><div className="label-tape"><Zap size={15} fill="currentColor" /> WELCOME TO THE GARAGE</div><h1>SMALL BOTS.<br /><span>BIG ATTITUDE.</span></h1><p className="intro">Two robots. One ball. Your league.</p></div>
-          <p className="online-count" aria-live="polite"><span className="live-dot" />{onlinePlayers === null ? 'ARENA OFFLINE' : `${onlinePlayers} ${onlinePlayers === 1 ? 'PLAYER' : 'PLAYERS'} ONLINE`}</p>
+          <div className="arena-counts" aria-live="polite"><p className="online-count"><span className="live-dot" />{onlinePlayers === null ? 'LIVE COUNTS UNAVAILABLE' : `${onlinePlayers} ONLINE`}</p>{presence && <p className="arena-activity"><span>{presence.inGame} IN MATCHES</span><span>{presence.waiting} WAITING</span></p>}</div>
           <nav className="mode-choices" aria-label="Game modes">
             <Button className="mode-choice primary-mode" onClick={() => setMenuPage('solo')}><Gamepad2 /><span>SINGLE PLAYER<small>YOUR ROBOT. YOUR AI RIVAL.</small></span><ArrowRight /></Button>
             <Button className="mode-choice" onClick={() => setMenuPage('multiplayer')}><Users /><span>MULTIPLAYER<small>QUICK MATCH OR PLAY WITH A FRIEND</small></span><ArrowRight /></Button>
             <Button className="mode-choice" onClick={() => setRobotsOpen(true)}><Zap /><span>MEET THE ROBOTS<small>THE REAL BOTS BEHIND THE GAME</small></span><ArrowUpRight /></Button>
           </nav>
         </> : <>
-          <div className="submenu-header"><Button variant="ghost" className="back-button" onClick={() => menu(screen === 'menu' ? 'home' : 'multiplayer')} aria-label={screen === 'menu' ? 'Back to main menu' : 'Back to multiplayer'}><ArrowLeft /> BACK</Button><h2>{screen !== 'menu' ? screen === 'queue' ? 'FINDING A MATCH' : 'MATCH ROOM' : menuPage === 'solo' ? 'SINGLE PLAYER' : 'MULTIPLAYER'}</h2></div>
+          <div className="submenu-header"><Button variant="ghost" className="back-button" onClick={() => menu(screen === 'menu' ? 'home' : 'multiplayer')} aria-label={screen === 'menu' ? 'Back to main menu' : 'Back to multiplayer'}><ArrowLeft /> BACK</Button><h2>{screen !== 'menu' ? screen === 'admission' ? 'WAITING FOR A SPOT' : screen === 'queue' ? 'FINDING A MATCH' : 'MATCH ROOM' : menuPage === 'solo' ? 'SINGLE PLAYER' : 'MULTIPLAYER'}</h2></div>
           {screen === 'menu' && menuPage === 'solo' ? <div className="setup-grid">
             <div className="setup-column"><div className="section-label">YOUR ROBOT</div><RobotPicker kind={kind} onChange={setKind} />
               <div className="nickname-field"><label className="name-label" htmlFor="nickname">YOUR NAME</label><Input id="nickname" value={name} onChange={e => setName(e.target.value)} maxLength={20} className="nick-input" autoComplete="nickname" /></div>
@@ -142,6 +149,9 @@ export function Football() {
           </div> : screen === 'menu' ? <div className="setup-grid multiplayer-setup">
             <div className="setup-column"><label className="section-label" htmlFor="nickname">YOUR NAME</label><Input id="nickname" value={name} onChange={e => setName(e.target.value)} maxLength={20} className="nick-input" autoComplete="nickname" /><p className="mode-description">Pick your robot inside the room.<br />Both players choose, then get ready.</p>{invite && <p className="invited-room">INVITED TO <strong>{invite}</strong></p>}</div>
             <div className="setup-column launch-column"><Button className="play-button" disabled={!ready} onClick={() => online('queue')}><Radio /><span>QUICK MATCH<small>FIND AN OPPONENT</small></span></Button><Button className="secondary-action" disabled={!ready} onClick={() => online('create')}><Users /><span>CREATE A ROOM<small>PLAY WITH A FRIEND</small></span></Button><div className="join-row"><Input aria-label="Room code" placeholder="ROOM CODE" maxLength={8} value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} /><Button variant="ghost" aria-label="Join with a code" disabled={!ready || joinCode.trim().length < 4} onClick={() => online('join')}>JOIN <ArrowRight size={16} /></Button></div></div>
+          </div> : screen === 'admission' && admission ? <div className="admission-layout">
+            <div className="admission-details"><dl className="admission-counts" aria-live="polite"><div><dt>IN MATCHES</dt><dd>{admission.inGame}</dd></div><div><dt>WAITING</dt><dd>{admission.waiting}</dd></div><div className="your-place"><dt>YOUR PLACE</dt><dd>{admission.position}</dd></div></dl><p className="admission-capacity"><strong>{admission.admitted} / {admission.capacity}</strong> multiplayer spots reserved</p><output className="admission-status"><LoaderCircle className="spin" size={16} />{status}</output></div>
+            <div className="admission-options"><a className="local-play-banner" href="https://github.com/Nikolay-Tyulkin/robot-league" target="_blank" rel="noopener noreferrer"><Code2 aria-hidden="true" /><span>Tired of waiting?<strong>Run Robot League locally.</strong></span><ArrowUpRight aria-hidden="true" /></a><Button className="secondary-action" disabled={!ready} onClick={() => { menu(); setMenuPage('solo'); }}><Gamepad2 /> PLAY SOLO <ArrowRight /></Button><p className="admission-solo-note">Leave the waiting list and play right away.</p></div>
           </div> : room ? <div className="setup-grid room-setup">
             <div className="setup-column"><div className="section-label">YOUR ROBOT</div><RobotPicker disabled={!connected} kind={room.players[room.player]?.kind ?? kind} onChange={robot => { setKind(robot); socket.current?.selectRobot(robot); }} /><output className="mode-description room-selection-hint">{!connected ? status || 'Reconnecting…' : <>Choose your bot, then press Ready.<br />Changing robots clears both ready checks.</>}</output><Button className="play-button" disabled={!connected || room.players.length < 2 || !room.players.every(p => p.connected) || room.players[room.player]?.ready} onClick={() => socket.current?.send({type:'ready'})}><Check /><span>{room.players[room.player]?.ready ? 'YOU’RE READY' : 'READY!'}</span></Button></div>
             <div className="setup-column room-details"><div className="room-code"><small>ROOM CODE</small><strong>{room.code}</strong><Button variant="ghost" aria-label="Copy invitation" onClick={copyInvite}>{copied ? <Check /> : <Copy />}</Button></div>{room.players.map((p,i) => <div className="room-player" key={i}><span className={i === 0 ? 'cyan-dot' : 'orange-dot'} /><span>{p.name}{i === room.player ? ' · YOU' : ''}<small>{ROBOT_NAMES[p.kind].toUpperCase()}</small></span><span>{!p.connected ? 'OFFLINE' : p.ready ? 'READY' : 'CHOOSING'}</span></div>)}{room.players.length < 2 && <p className="waiting">Share the link or code.<br />Waiting for a second player.</p>}</div>

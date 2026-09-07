@@ -36,7 +36,11 @@ const localBindingConfig = {
 
 export default defineConfig(async () => {
   const server = {
-    proxy: { '/ws': { target: 'ws://127.0.0.1:8080', ws: true } },
+    proxy: {
+      '/ws': { target: 'ws://127.0.0.1:8080', ws: true },
+      '/presence': { target: 'http://127.0.0.1:8080' },
+      '/admission': { target: 'http://127.0.0.1:8080' },
+    },
     ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
   };
   if (process.env.BUILD_TARGET === 'docker') {

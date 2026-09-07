@@ -14,6 +14,7 @@ Robot League is a browser football game with Watti, Microduck and Reachy Mini as
 | Arena geometry and sound | `game/arena.ts`, `game/sound.ts` |
 | Touch input and mobile framing | `game/touch-input.ts`, `game/TouchControls.tsx`, `game/mobile-camera.ts` |
 | Browser socket and authoritative server | `game/network.ts`, `server/index.ts` |
+| Admission, HTTP presence and binary transport | `server/admission.ts`, `server/admission-api.ts`, `game/wire.ts` |
 | Credits and model provenance | `game/credits.ts`, `game/RobotCredits.tsx`, `ASSETS.md`, `public/models/` |
 | Optional CAD conversion and QA | `scripts/assets/` |
 
@@ -22,6 +23,7 @@ Use the [documentation index](docs/README.md) to choose a guide, then read [Arch
 ## Invariants
 
 - Keep authoritative rules in `game/sim.ts`, usable without a browser. Solo and the server run the same 60 Hz simulation. Clients send controls; the server owns online positions, goals, score, and time.
+- Preserve lossless binary snapshot/input encoding when extending state or robot kinds; update `game/wire.ts` and round-trip tests. Keep the 200-player admission limit separate from site visitors and opponent search. Cancellation, reconnect and HTTP waiting must not leak slots or bypass FIFO.
 - `demo`, `solo`, and `online` describe runtime ownership. They are not a registry of match rule sets. Players, teams, rooms, and the current HUD are hardcoded for two players.
 - Keep keyboard and touch input equivalent. Preserve increasing input sequences, single-use shoot/tap/skill edges, pointer ownership, and clearing controls on cancellation, blur, pause, and navigation. E activates the robot skill; Q is the short hit. Skill cooldowns and effects belong to the shared simulation and server snapshots, not UI timers.
 - Robot identities and names live in `ROBOT_KINDS`/`ROBOT_NAMES`. Preserve both online selections and per-player model instances, including mirror matches. Each online player changes only their own room selection; a changed pairing resets both ready flags, and choices lock after start. Solo can explicitly choose any robot; random selection excludes the player's kind at each new match.

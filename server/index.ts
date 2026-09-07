@@ -6,10 +6,13 @@ import { pathToFileURL } from 'node:url';
 import { staticHandler } from './static.ts';
 import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { AdmissionQueue } from './admission.ts';
+import { admissionApi } from './admission-api.ts';
+import { WIRE_PROTOCOL, SnapshotEncoder, decodeInput } from '../game/wire.ts';
 
-type Seat = { ws: WebSocket | null; token: string; name: string; kind: RobotKind; ready: boolean; input: Input; lastSeen: number; lastInput: number; rematch: boolean };
+type Seat = { ws: WebSocket | null; token: string; admissionTicket?: string; name: string; kind: RobotKind; ready: boolean; input: Input; lastSeen: number; lastInput: number; rematch: boolean };
 type Room = { code: string; private: boolean; seats: Seat[]; state?: MatchState; resumePhase?: Phase; disconnectedAt?: number; updatedAt: number };
-type Client = { room?: Room; seat?: number; queued?: boolean; presence?: boolean; name?: string; kind?: RobotKind; messages: number; window: number; actions: number; actionWindow: number; ip: string };
+type Client = { room?: Room; seat?: number; queued?: boolean; presence?: boolean; name?: string; kind?: RobotKind; messages: number; window: number; actions: number; actionWindow: number; ip: string; admissionTicket?: string; encoder?: SnapshotEncoder; connectedAt: number };
 export function allowedOrigin(origin: string | undefined, host: string | undefined, allowlist?: string[]) {
   if (!origin) return !allowlist?.length;
   if (allowlist?.length) return allowlist.includes(origin);
@@ -24,7 +27,7 @@ export function validInput(value: unknown): value is Input {
   const i = value as Input;
   return Number.isSafeInteger(i.seq) && i.seq >= 0 && Number.isFinite(i.x) && Number.isFinite(i.z) && Math.abs(i.x) <= 1 && Math.abs(i.z) <= 1 && ['sprint','charge','shoot','tap'].every(k => typeof i[k as keyof Input] === 'boolean') && (i.skill === undefined || typeof i.skill === 'boolean');
 }
-export function createGameServer(options: { port?: number; host?: string; reconnectMs?: number; allowedOrigins?: string[]; autoTick?: boolean; staticDirectory?: string } = {}) {
+export function createGameServer(options: { port?: number; host?: string; reconnectMs?: number; allowedOrigins?: string[]; autoTick?: boolean; staticDirectory?: string; capacity?: number; maxWaiting?: number; visitorTtlMs?: number } = {}) {
   const rooms = new Map<string, Room>(), clients = new Map<WebSocket, Client>(), queue: WebSocket[] = [];
   const ipCounts = new Map<string, number>();
   const maxConnections = connectionLimit(process.env.MAX_CONNECTIONS, 512);
@@ -32,34 +35,105 @@ export function createGameServer(options: { port?: number; host?: string; reconn
   let stopping = false;
   const alive = new WeakMap<WebSocket, boolean>();
   const reconnectMs = options.reconnectMs ?? 15000;
+  const admission = new AdmissionQueue({ capacity: options.capacity ?? connectionLimit(process.env.MAX_PLAYERS, 200), maxWaiting: options.maxWaiting ?? connectionLimit(process.env.MAX_WAITING_PLAYERS, 10000), reconnectMs });
+  const ticketOwners = new Map<string, WebSocket>();
+  const allowed = options.allowedOrigins ?? process.env.ALLOWED_ORIGINS?.split(',').map(value => value.trim()).filter(Boolean);
   const send = (ws: WebSocket | null, data: object) => { if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 256 * 1024) ws.send(JSON.stringify(data)); };
-  const onlineVisitors = () => [...clients.values()].filter(client => client.presence).length;
-  const broadcastPresence = () => { const message = {type:'presence',online:onlineVisitors(),queued:queue.length}; for (const [ws, client] of clients) if (client.presence) send(ws, message); };
+  const api = admissionApi({ admission, visitorTtlMs: options.visitorTtlMs,
+    originAllowed: req => allowedOrigin(req.headers.origin, req.headers.host, allowed),
+    counts: () => ({ queued: queue.length, legacyOnline: [...clients.values()].filter(c => c.presence).length,
+      inGame: [...rooms.values()].reduce((n, room) => n + (room.state && room.state.phase !== 'finished' ? room.seats.filter(s => s.ws?.readyState === WebSocket.OPEN).length : 0), 0) }),
+    cancel: ticket => {
+      const owner = ticketOwners.get(ticket);
+      if (owner) { leave(owner, false); releaseSlot(owner); owner.close(1000, 'Left multiplayer'); }
+      admission.release(ticket);
+    },
+  });
+  const broadcastPresence = () => { const message = {type:'presence',...api.stats()}; for (const [ws, client] of clients) if (client.presence || client.queued) send(ws, message); };
   const error = (ws: WebSocket, message: string) => send(ws, { type:'error', message });
   const serveStatic = options.staticDirectory ? staticHandler(options.staticDirectory) : undefined;
   const server = http.createServer((req, res) => {
-    if (req.url === '/healthz') { res.writeHead(200, {'content-type':'application/json'}); res.end(JSON.stringify({status:'ok',rooms:rooms.size,queued:queue.length,online:onlineVisitors()})); }
+    if (req.url === '/presence' || req.url === '/admission') { void api.handle(req, res).catch(() => { if (!res.headersSent) res.writeHead(500); res.end(); }); }
+    else if (req.url === '/healthz') { res.writeHead(200, {'content-type':'application/json','cache-control':'no-store'}); res.end(JSON.stringify({status:'ok',rooms:rooms.size,...api.stats()})); }
     else if (serveStatic) void serveStatic(req, res);
     else { res.writeHead(404); res.end('Not found'); }
   });
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 2048, perMessageDeflate: false });
+  server.requestTimeout = 10000; server.headersTimeout = 10000;
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 2048, perMessageDeflate: false, handleProtocols: protocols => protocols.has(WIRE_PROTOCOL) ? WIRE_PROTOCOL : false });
   server.on('upgrade', (req, socket, head) => {
     const origin = req.headers.origin, ip = req.socket.remoteAddress ?? 'unknown';
-    const allowed = options.allowedOrigins ?? process.env.ALLOWED_ORIGINS?.split(',').map(value => value.trim()).filter(Boolean);
     if (stopping || req.url !== '/ws' || !allowedOrigin(origin, req.headers.host, allowed) || wss.clients.size >= maxConnections || (ipCounts.get(ip) ?? 0) >= maxPerIp) { socket.write('HTTP/1.1 403 Forbidden\r\n\r\n'); socket.destroy(); return; }
-    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
+    const protocols = req.headers['sec-websocket-protocol']?.split(',').map(p => p.trim()) ?? [];
+    const ticket = protocols.find(p => p.startsWith('admission.'))?.slice(10);
+    if (protocols.includes(WIRE_PROTOCOL) && (!ticket || !admission.claim(ticket))) { socket.write('HTTP/1.1 403 Forbidden\r\n\r\n'); socket.destroy(); return; }
+    let upgraded = false;
+    socket.once('close', () => { if (!upgraded && ticket && protocols.includes(WIRE_PROTOCOL)) admission.disconnect(ticket); });
+    try {
+      wss.handleUpgrade(req, socket, head, ws => {
+        upgraded = true;
+        wss.emit('connection', ws, req);
+        if (ticket && ws.protocol === WIRE_PROTOCOL) assignSlot(ws, ticket);
+      });
+    } catch { if (ticket && protocols.includes(WIRE_PROTOCOL)) admission.disconnect(ticket); socket.destroy(); }
   });
+  function assignSlot(ws: WebSocket, ticket: string) { clients.get(ws)!.admissionTicket = ticket; ticketOwners.set(ticket, ws); }
+  function releaseSlot(ws: WebSocket, disconnect = false) {
+    const c = clients.get(ws), ticket = c?.admissionTicket;
+    if (!ticket) return;
+    if (ticketOwners.get(ticket) === ws) ticketOwners.delete(ticket);
+    if (disconnect) admission.disconnect(ticket); else admission.release(ticket);
+    c.admissionTicket = undefined;
+  }
+  function ensureSlot(ws: WebSocket) {
+    const c = clients.get(ws)!;
+    if (c.admissionTicket) {
+      const current = admission.peek(c.admissionTicket);
+      if (ticketOwners.get(c.admissionTicket) === ws && current?.status === 'active' && current.expiresAt === null) {
+        // A reconnect reservation still belongs to its old room until resumed
+        // or explicitly cancelled; it cannot back two independent seats.
+        if ([...rooms.values()].some(room => room.seats.some(s => s.admissionTicket === c.admissionTicket && s.ws !== ws))) {
+          error(ws,'Resume your reserved room or leave before starting a new match.'); return false;
+        }
+        return true;
+      }
+      if (ticketOwners.get(c.admissionTicket) === ws) ticketOwners.delete(c.admissionTicket);
+      c.admissionTicket = undefined;
+    }
+    const ticket = admission.join(randomBytes(24).toString('base64url'));
+    if (!ticket || ticket.status !== 'ready' || !admission.claim(ticket.ticket)) {
+      if (ticket) admission.release(ticket.ticket);
+      error(ws, 'Multiplayer is full. Reload the page to join the waiting room.'); return false;
+    }
+    assignSlot(ws, ticket.ticket); return true;
+  }
   function removeQueue(ws: WebSocket) { const index = queue.indexOf(ws); if (index >= 0) queue.splice(index, 1); const c = clients.get(ws); if (c) c.queued = false; if (index >= 0) broadcastPresence(); }
   function removeRoom(room: Room) {
-    for (const s of room.seats) { const c = s.ws ? clients.get(s.ws) : undefined; if (c?.room === room) { c.room = undefined; c.seat = undefined; } }
+    for (const s of room.seats) {
+      const owner = (s.admissionTicket ? ticketOwners.get(s.admissionTicket) : undefined) ?? s.ws;
+      const c = owner ? clients.get(owner) : undefined;
+      const pendingResume = c?.room !== room;
+      if (c?.room === room) { c.room = undefined; c.seat = undefined; }
+      if (owner) {
+        releaseSlot(owner);
+        // A newly upgraded socket may hold the ticket before sending resume.
+        if (pendingResume) { error(owner,'This room has expired.'); owner.close(1000,'Room expired'); }
+      }
+      if (s.admissionTicket) admission.release(s.admissionTicket);
+    }
     rooms.delete(room.code);
   }
   function broadcastRoom(room: Room) {
     room.updatedAt = Date.now();
     room.seats.forEach((s,i) => send(s.ws, {type:'room', token:s.token, room:{code:room.code,player:i,private:room.private,players:room.seats.map(p => ({name:p.name,kind:p.kind,ready:p.ready,connected:p.ws?.readyState === WebSocket.OPEN}))}}));
   }
-  function snapshot(room: Room) { if (room.state) room.seats.forEach((s,i) => send(s.ws, {type:'state',state:room.state,player:i})); }
-  function seat(ws: WebSocket, name: string, kind: RobotKind): Seat { return { ws, name, kind, token:randomBytes(24).toString('base64url'), ready:false, input:idleInput(), lastSeen:Date.now(), lastInput:Date.now(), rematch:false }; }
+  function sendSnapshot(ws: WebSocket | null, state: MatchState, player: number) {
+    if (!ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount >= 256 * 1024) return;
+    const c = clients.get(ws);
+    if (c?.encoder) ws.send(c.encoder.encode(state, player));
+    else send(ws, {type:'state',state,player});
+  }
+  function snapshot(room: Room) { if (room.state) room.seats.forEach((s,i) => sendSnapshot(s.ws, room.state!, i)); }
+  function seat(ws: WebSocket, name: string, kind: RobotKind): Seat { clients.get(ws)?.encoder?.reset(); return { ws, name, kind, admissionTicket:clients.get(ws)?.admissionTicket, token:randomBytes(24).toString('base64url'), ready:false, input:idleInput(), lastSeen:Date.now(), lastInput:Date.now(), rematch:false }; }
   function makeRoom(ws: WebSocket, name: string, kind: RobotKind, isPrivate: boolean) {
     let code: string; do { code = randomBytes(4).toString('hex').slice(0,6).toUpperCase(); } while (rooms.has(code));
     const room: Room = {code,private:isPrivate,seats:[seat(ws,name,kind)],updatedAt:Date.now()}; rooms.set(code,room);
@@ -100,11 +174,15 @@ export function createGameServer(options: { port?: number; host?: string; reconn
   wss.on('connection', (ws, req) => {
     alive.set(ws, true); ws.on('pong', () => alive.set(ws, true));
     const ip=req.socket.remoteAddress ?? 'unknown'; ipCounts.set(ip,(ipCounts.get(ip)??0)+1);
-    clients.set(ws,{messages:0,window:Date.now(),actions:0,actionWindow:Date.now(),ip});
-    ws.on('message', raw => {
+    clients.set(ws,{messages:0,window:Date.now(),actions:0,actionWindow:Date.now(),ip,connectedAt:Date.now(),encoder:ws.protocol===WIRE_PROTOCOL?new SnapshotEncoder():undefined});
+    ws.on('message', (raw, isBinary) => {
       const c=clients.get(ws)!; const now=Date.now();
       if(now-c.window>1000) {c.messages=0;c.window=now;} if(++c.messages>100) {ws.close(1008,'Rate limit');return;}
-      let m: Record<string,unknown>; try { const buffer = Array.isArray(raw) ? Buffer.concat(raw) : raw instanceof ArrayBuffer ? Buffer.from(raw) : raw; m=JSON.parse(buffer.toString('utf8')); } catch {error(ws,'Invalid message.');return;}
+      let m: Record<string,unknown>; try {
+        const buffer = Array.isArray(raw) ? Buffer.concat(raw) : raw instanceof ArrayBuffer ? Buffer.from(raw) : raw;
+        if (isBinary) { const input = c.encoder ? decodeInput(buffer) : null; if (!input) throw new Error('Invalid input'); m={type:'input',input}; }
+        else m=JSON.parse(buffer.toString('utf8'));
+      } catch {error(ws,'Invalid message.');return;}
       if(!m || typeof m!=='object' || typeof m.type!=='string') {error(ws,'Invalid message.');return;}
       if(m.type==='ping') {send(ws,{type:'pong',sent:typeof m.sent==='number'&&Number.isFinite(m.sent)?m.sent:0});return;}
       if(m.type==='presence') { if (!c.presence) { c.presence=true; broadcastPresence(); } return; }
@@ -116,7 +194,8 @@ export function createGameServer(options: { port?: number; host?: string; reconn
         p.input={seq:i.seq,x:i.x,z:i.z,sprint:i.sprint,charge:i.charge,shoot:i.shoot||p.input.shoot,tap:i.tap||p.input.tap,skill:i.skill===true||p.input.skill===true}; p.lastInput=now; return;
       }
       if(now-c.actionWindow>10000) {c.actions=0;c.actionWindow=now;} if(++c.actions>20) {error(ws,'Too many requests. Please wait a moment.');return;}
-      if(m.type==='leave') {leave(ws,false);return;}
+      if(m.type==='leave') {leave(ws,false);releaseSlot(ws);return;}
+      if(m.type==='resync' && c.encoder && c.room?.state && c.seat!==undefined) { c.encoder.reset(); sendSnapshot(ws,c.room.state,c.seat); return; }
       if(m.type==='resume') {
         if(c.room) return;
         const room=typeof m.code==='string'?rooms.get(m.code):undefined;
@@ -124,6 +203,13 @@ export function createGameServer(options: { port?: number; host?: string; reconn
         const index=room.seats.findIndex(s => {const a=Buffer.from(s.token),b=Buffer.from(m.token as string);return a.length===b.length&&timingSafeEqual(a,b);});
         if(index<0 || (room.disconnectedAt && now-room.disconnectedAt>reconnectMs)) {error(ws,'The reconnection window has expired.');return;}
         const p=room.seats[index]; if(p.ws && p.ws!==ws) {error(ws,'This player is already connected.');return;}
+        // A room token cannot take over a seat with a different admission ticket.
+        if (c.admissionTicket && c.admissionTicket !== p.admissionTicket) { error(ws,'The reconnection window has expired.'); return; }
+        if (!c.admissionTicket) {
+          if (!p.admissionTicket || !admission.claim(p.admissionTicket)) { error(ws,'The reconnection window has expired.'); return; }
+          assignSlot(ws,p.admissionTicket);
+        }
+        c.encoder?.reset();
         p.ws=ws;p.lastSeen=now;p.lastInput=now;p.input=idleInput();Object.assign(c,{room,seat:index});
         // A resumed browser may begin a fresh input sequence; gameplay timers persist.
         if(room.state) {room.state.players[index].skillSeq=-1;room.state.players[index].skillHeld=false;}
@@ -156,6 +242,7 @@ export function createGameServer(options: { port?: number; host?: string; reconn
       }
       if(!['queue','create','join'].includes(m.type)) return;
       if(c.room || c.queued) {error(ws,'You are already in a room or in the queue.');return;}
+      if (!ensureSlot(ws)) return;
       const name=typeof m.name==='string'?Array.from(m.name).filter(c=>c.charCodeAt(0)>=32&&c.charCodeAt(0)!==127).join('').trim().slice(0,20):'Player';
       const selectedKind = isRobotKind(m.kind) ? m.kind : undefined;
       const nick=name||'Player', kind=selectedKind??'watti';
@@ -174,7 +261,7 @@ export function createGameServer(options: { port?: number; host?: string; reconn
         broadcastPresence();
       }
     });
-    ws.on('close',()=>{leave(ws,true);clients.delete(ws);broadcastPresence();const n=(ipCounts.get(ip)??1)-1;if(n)ipCounts.set(ip,n);else ipCounts.delete(ip);});
+    ws.on('close',()=>{const inRoom=!!clients.get(ws)?.room;leave(ws,true);releaseSlot(ws,inRoom);clients.delete(ws);broadcastPresence();const n=(ipCounts.get(ip)??1)-1;if(n)ipCounts.set(ip,n);else ipCounts.delete(ip);});
     ws.on('error',()=>{});
   });
   let ticks=0;
@@ -206,20 +293,25 @@ export function createGameServer(options: { port?: number; host?: string; reconn
     while (accumulated >= 1 / 60) { tick(); accumulated -= 1 / 60; }
   },8);
   const heartbeat = setInterval(() => { for (const ws of wss.clients) { if (!alive.get(ws)) { ws.terminate(); continue; } alive.set(ws, false); ws.ping(); } }, 4000);
+  const cleanup = setInterval(() => {
+    api.sweep();
+    for (const [ws,c] of clients) if (c.admissionTicket && !c.room && !c.queued && Date.now()-c.connectedAt>30000) { releaseSlot(ws); ws.close(1000,'Admission expired'); }
+  },1000);
+  cleanup.unref();
   heartbeat.unref();
-  server.on('close',()=>{if(timer)clearInterval(timer);clearInterval(heartbeat);});
+  server.on('close',()=>{if(timer)clearInterval(timer);clearInterval(heartbeat);clearInterval(cleanup);});
   const listen=async () => {
     if (options.staticDirectory) await access(resolve(options.staticDirectory, 'index.html'));
     return new Promise<number>((resolve,reject)=>{server.once('error',reject);server.listen(options.port??Number(process.env.PORT??8080),options.host??process.env.HOST??'127.0.0.1',()=>{server.removeListener('error',reject);resolve((server.address() as {port:number}).port);});});
   };
   let closing: Promise<void> | undefined;
   const close=() => closing ??= new Promise<void>(resolve=>{
-    stopping=true;if(timer)clearInterval(timer);clearInterval(heartbeat);
+    stopping=true;if(timer)clearInterval(timer);clearInterval(heartbeat);clearInterval(cleanup);
     for(const ws of wss.clients)ws.close(1001,'Server shutting down');
     const force=setTimeout(()=>{for(const ws of wss.clients)ws.terminate();server.closeAllConnections();},3000);force.unref();
     wss.close();server.close(()=>{clearTimeout(force);resolve();});
   });
-  return {server,wss,rooms,queue,tick,listen,close};
+  return {server,wss,rooms,queue,admission,tick,listen,close};
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
   const app=createGameServer({staticDirectory:process.env.STATIC_DIR});const port=await app.listen();console.log(`Robot League listening on ${process.env.HOST ?? '127.0.0.1'}:${port}`);

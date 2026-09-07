@@ -8,7 +8,7 @@ docker compose ps
 docker compose logs -f game
 ```
 
-The default is `http://localhost:3000`, bound to `127.0.0.1`. The image runs a compiled Node server as the unprivileged `node` user, with read-only filesystem, dropped capabilities, bounded shutdown and an HTTP health check. One process serves the exported frontend, `/ws` and `/healthz`; no database or persistent volume is needed.
+The default is `http://localhost:3000`, bound to `127.0.0.1`. The image runs a compiled Node server as the unprivileged `node` user, with read-only filesystem, dropped capabilities, bounded shutdown and an HTTP health check. One process serves the exported frontend, `/ws`, `/presence`, `/admission` and `/healthz`; no database or persistent volume is needed.
 
 Docker builds inside Linux using `npm ci`, exports the client with `BUILD_TARGET=docker`, and compiles the server separately. This preserves the default Sites/Vinext build. The final image contains generated public assets, compiled server/simulation and the ws dependency, not the repository or development server. Static export cannot host future dynamic React server actions/routes; extend the server or select a new runtime deliberately if a feature needs them.
 
@@ -23,6 +23,8 @@ ALLOWED_ORIGINS=
 Use the host's LAN address on another device. The default empty allowlist requires a browser's Origin to match the requested host. An explicit comma-separated allowlist restricts it to those exact origins. The browser uses same-origin `/ws`; setting `NEXT_PUBLIC_GAME_SERVER_URL` is only needed for a separate frontend and is a **build-time** override. Never put a password in any `NEXT_PUBLIC_*` variable.
 
 For native `npm run dev`, Vite handles client `.env` values. The standalone Node entry reads the process environment rather than loading `.env` automatically. Its `HOST`/`PORT` defaults are `127.0.0.1:8080`; `STATIC_DIR` enables static serving and requires an `index.html` at startup.
+
+For a native static build, run `npm run build:container` and `npm run build:server`. On Windows, the container build command preloads a small Vinext shutdown workaround: an explicit successful exit waits for pending socket cleanup, avoiding the libuv assertion after export. Failed builds keep their original exit behavior. Linux Docker builds do not load the workaround.
 
 ## Internet host behind nginx
 
@@ -40,6 +42,10 @@ Docker's published-port traffic may bypass UFW's normal INPUT processing. Bindin
 For an IP-only endpoint such as `http://203.0.113.10:3000`, use nginx `listen 3000`, a free loopback container port such as 3001, and that exact public Origin in `ALLOWED_ORIGINS`. Open 3000/tcp in UFW while keeping SSH and existing rules intact. Do not publish 3001 externally.
 
 ## Verify and operate
+
+`MAX_PLAYERS=200` limits multiplayer participants, including lobbies and reconnect reservations. Extra players wait over HTTP and see their FIFO position. `MAX_WAITING_PLAYERS=10000` bounds the waiting room. Menu and solo remain available without a game WebSocket. Keep `MAX_CONNECTIONS` above the player limit to leave reconnect headroom; it is a separate transport ceiling, not the number of allowed players. The visitor count uses 15-second heartbeats and a 45-second expiry, so it is approximate. Admission tickets and rooms are in memory and expire on restart.
+
+Proxy `/presence` and `/admission` to the same process as `/ws`, preserve the public Origin/Host, and do not cache these JSON endpoints. The default nginx catch-all already routes them. Tickets travel in POST bodies and the WebSocket subprotocol header; do not add these headers/bodies to access logs. A separate frontend origin requires `ALLOWED_ORIGINS` and HTTP CORS; a CDN must bypass cache for these paths. A waiting room bounds gameplay load, not asset-download traffic or abusive HTTP requests.
 
 ```sh
 curl --fail http://127.0.0.1:3001/healthz

@@ -4,6 +4,10 @@
 .mode-home .intro { margin-bottom: 26px; }
 .online-count { display: inline-flex; align-items: center; gap: 7px; margin: -12px 0 18px; color: #d4dfc7; font-size: 10px; font-weight: 800; letter-spacing: 1.05px; }
 .online-count .live-dot { width: 8px; height: 8px; box-shadow: 0 0 9px #6fe2a4; }
+.arena-counts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; margin: -12px 0 18px; }
+.arena-counts .online-count { margin: 0; }
+.arena-activity { display: flex; gap: 10px; margin: 0; color: #b8cbc0; font-size: 9px; font-weight: 800; letter-spacing: .45px; }
+.arena-activity span { white-space: nowrap; }
 .mode-choices { display: grid; gap: 12px; }
 .mode-choice[data-slot=button] { width: 100%; min-height: 76px; height: auto; border: 1px solid #839287; border-radius: 2px; padding: 16px; display: flex; justify-content: flex-start; gap: 15px; background: #213439ed; color: #f1e5c8; box-shadow: 4px 4px #112126; text-align: left; }
 .mode-choice[data-slot=button]:hover { background: #3b504d; border-color: #f2bd50; }
@@ -58,6 +62,26 @@
 .queue-count { margin-top: 14px; padding-left: 12px; border-left: 3px solid #f2bd50; }
 .queue-count > strong { color: #f4d189; font-size: 14px; letter-spacing: .5px; }
 .queue-count .mode-description { margin: 5px 0; }
+.admission-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+.admission-details, .admission-options { min-width: 0; }
+.admission-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.admission-counts > div { padding: 11px 7px; border: 1px solid #718478; background: #14272d; text-align: center; }
+.admission-counts dt { font-size: 9px; font-weight: 800; letter-spacing: .3px; color: #c1d0bc; white-space: nowrap; }
+.admission-counts dd { margin: 5px 0 0; color: #f3e6c8; font: 32px Impact, 'Arial Narrow', sans-serif; }
+.admission-counts .your-place { border-color: #f2bd50; }
+.admission-counts .your-place dd { color: #f2bd50; }
+.admission-capacity { margin: 12px 0 0; font-size: 11px; color: #b8cbc0; }
+.admission-capacity strong { color: #f3d08a; }
+.admission-status { display: flex; align-items: flex-start; gap: 7px; margin: 12px 0 0; color: #e9d39d; font-size: 12px; line-height: 1.5; }
+.admission-status svg { flex-shrink: 0; margin-top: 2px; }
+.local-play-banner { display: flex; align-items: center; gap: 8px; padding: 12px 10px; border: 1px solid #b79e66; border-left: 3px solid #f2bd50; background: #293e3d; color: #f3e6c8; text-decoration: none; font-size: 12px; line-height: 1.5; box-shadow: 3px 3px #112126; }
+.local-play-banner > span { flex: 1; min-width: 0; }
+.local-play-banner strong { display: block; color: #f3d08a; }
+.local-play-banner svg { flex-shrink: 0; width: 18px; height: 18px; }
+.local-play-banner:hover { border-color: #f2bd50; background: #344b49; }
+.local-play-banner:focus-visible { outline: 2px solid #f2bd50; outline-offset: 3px; }
+.admission-options .secondary-action[data-slot=button] { min-height: 44px; width: 100%; margin-top: 14px; }
+.admission-solo-note { margin: 8px 0 0; color: #b8cbc0; font-size: 10px; line-height: 1.4; }
 @media (max-height: 820px) and (min-height: 601px) {
   .mode-home .home-heading { margin-top: 0; }
   .mode-home h1 { margin: 18px 0 10px; }
@@ -70,6 +94,8 @@
   .mode-home .menu-panel { width: 40%; min-width: 240px; padding: 0; }
   .mode-home .home-heading { display: none; }
   .online-count { margin: 0 0 8px; font-size: 8px; letter-spacing: .8px; }
+  .arena-counts { margin: 0 0 8px; gap: 4px 9px; }
+  .arena-activity { font-size: 8px; gap: 7px; letter-spacing: 0; }
   .mode-choices { gap: clamp(8px, 2vh, 14px); }
   .mode-choice[data-slot=button] { min-height: 54px; padding: 10px 12px; gap: 10px; box-shadow: 3px 3px #112126; }
   .mode-choice > span { font-size: clamp(16px, 2.4vw, 21px); letter-spacing: .4px; }
@@ -114,6 +140,14 @@
   .robot-skill-hint > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .setup-column:has(.robot-skill-hint) .nickname-field { margin-top: 6px; }
   .room-setup .room-selection-hint { margin: 5px 0; }
+  .admission-layout { gap: 18px; }
+  .admission-counts > div { padding: 8px 4px; }
+  .admission-counts dd { font-size: 28px; margin-top: 3px; }
+  .admission-capacity { margin-top: 8px; }
+  .admission-status { margin-top: 8px; font-size: 11px; }
+  .local-play-banner { padding: 9px 8px; }
+  .admission-options .secondary-action[data-slot=button] { margin-top: 10px; }
+  .admission-solo-note { margin-top: 5px; }
   .menu-panel > .asset-loading, .menu-panel > .error-message { position: absolute; right: 12px; bottom: 4px; max-width: 48%; margin: 0; padding: 5px 8px; background: #243337f5; font-size: 11px; z-index: 2; }
 }
 @media (orientation: landscape) and (max-height: 360px) {

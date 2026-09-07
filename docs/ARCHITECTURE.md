@@ -68,13 +68,17 @@ Desktop uses overview and overhead camera choices. `game/mobile-camera.ts` fits 
 
 Create/join/queue requests carry an initial kind. In the room, `select-robot` changes only the sender's server-owned seat and broadcasts both choices. A changed kind clears both ready flags; repeating the same kind does not. Choices lock once a match state exists and survive start, reconnect and rematch. Solo randomization excludes the player's kind and is resolved before `createMatch`, which remains deterministic for explicit kinds.
 
-Each open page maintains a separate presence socket on `/ws` and registers with `presence`. The server broadcasts `{type: 'presence', online, queued}` as visitors connect/disconnect or the quick-match queue changes. `online` counts registered page connections (multiple tabs count separately), not unique accounts; the additional match socket does not register. `queued` counts waiting players, including the viewer when searching, and drops immediately when a pair enters a room. On connection loss, the UI marks counts unavailable and retries. These statistics are scoped to one server process.
+Each open page sends an HTTP heartbeat to `/presence` every 15 seconds. Visitors expire after 45 seconds without a heartbeat. `online` counts page identities (not authenticated people), `queued` counts players searching for an opponent, `inGame` counts connected participants in started, unfinished matches, `admitted` counts reserved multiplayer slots, and `waiting` counts the separate admission queue. Menu and solo play do not open a WebSocket or consume a multiplayer slot. Counts are approximate and scoped to one server process.
+
+`server/admission.ts` owns a bounded FIFO waiting room. `MAX_PLAYERS` defaults to 200 and includes private lobbies, opponent search, active matches and short reconnect reservations. Before opening a game socket, the client joins `/admission`, then polls its opaque ticket while waiting. A free slot is offered for 15 seconds; waiting tickets expire after 30 seconds without polling. Leaving cancels the ticket and immediately promotes the next visitor. Room disconnects reserve the slot for the 15-second reconnection window. The waiting screen shows current matches, waiting players and the visitor's place, with solo and self-hosting alternatives. The limit does not throttle static asset delivery or protect against a deliberate denial of service.
 
 The server simulates at 60 Hz using monotonic elapsed time and sends regular snapshots at 20 Hz. The client sends controls at approximately 30 Hz, immediately sending shot/tap/skill edges. The server preserves these edges until a simulation tick consumes them and neutralizes stale movement after 350 ms.
 
+`game/wire.ts` implements the negotiated `robot-league.v2` binary protocol. Controls and snapshots preserve float64 precision. Snapshots transmit changed fields and new events between periodic full keyframes; the client requests `resync` if a baseline is missing or a packet is invalid. Decoding returns independent complete states so prediction cannot alter the transport baseline. Congested sockets are skipped before encoding, and reconnect/rematch reset the baseline. Room controls remain JSON. Older JSON-only clients remain compatible and are subject to the same capacity limit, but must reload to use the waiting screen. Update the codec and its round-trip tests whenever adding simulation fields or robot kinds.
+
 Rooms currently hold exactly two seats. Private rooms and the public queue are separate. A disconnect preserves lobby seats/choices, clears readiness and allows a 15-second token-based return. In an active match it pauses play for the same return window. Explicitly leaving a lobby closes it immediately. Both connected players must request a rematch. State lives in one server process with no database or cross-process room coordination.
 
-The default browser socket is same-origin `/ws`; `NEXT_PUBLIC_GAME_SERVER_URL` can override it. Development starts the web and match servers, with the Vite `/ws` proxy targeting the local match server. The Docker build uses:
+The default browser socket is same-origin `/ws`; `NEXT_PUBLIC_GAME_SERVER_URL` can override it. The HTTP presence/admission endpoints use the corresponding HTTP(S) origin. Development proxies `/ws`, `/presence` and `/admission` to the local match server. The Docker build uses:
 
 ```sh
 npm run build:container
@@ -87,6 +91,8 @@ npm run build:server
 
 - `tests/sim.test.ts`: goal crossings, timing, actions, AI, pause and numeric stability.
 - `tests/server.test.ts`: room/queue lifecycle, authoritative input, reconnect, rematch, and server behavior.
+- `tests/admission.test.ts`, `tests/admission-server.test.ts`: FIFO capacity, expiry, cancellation, HTTP validation, reconnect reservations and mixed protocol peers.
+- `tests/wire.test.ts`: lossless snapshots, malformed packet rejection, baseline recovery and representative bandwidth reduction.
 - `tests/mobile.test.ts`: independent touch ownership, cancellation, one-shot actions, and both camera projections.
 - `tests/http.test.ts`: static serving, traversal/symlink rejection, Origin policy, connection limits, and bounded graceful shutdown.
 - `scripts/smoke.mjs`: built HTTP/model delivery and a two-player WebSocket room against a running server.

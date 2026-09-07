@@ -7,6 +7,8 @@ services:
       ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-}"
       MAX_CONNECTIONS: "${MAX_CONNECTIONS:-512}"
       MAX_CONNECTIONS_PER_IP: "${MAX_CONNECTIONS_PER_IP:-64}"
+      MAX_PLAYERS: "${MAX_PLAYERS:-200}"
+      MAX_WAITING_PLAYERS: "${MAX_WAITING_PLAYERS:-10000}"
     init: true
     restart: unless-stopped
     read_only: true

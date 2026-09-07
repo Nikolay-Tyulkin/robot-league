@@ -18,11 +18,14 @@ There is no current `MatchRules` registry or mode negotiation API. Add only the 
 | Local startup and prediction | `game/engine.ts`: `startSolo`, simulation loop, online prediction, `snapshot` |
 | UI | `game/Football.tsx`: mode entry, help, lobby, score/time, phase/result messages, rematch |
 | Client protocol | `game/network.ts`: room/state message types and startup request |
+| Binary state and controls | `game/wire.ts`: update the schema and round-trip tests for new state fields, phases, players or controls; version incompatible changes |
 | Server room configuration | `server/index.ts`: `Room`, create/join/queue handling, `begin`, ready/rematch |
 | New controls | `Input`, `idleInput`, server `validInput`, keyboard input, `TouchInput`, `TouchControls` |
 | Visual bounds and feedback | `game/arena.ts`, `game/mobile-camera.ts`, `Robot.animate`/`referee`, `game/sound.ts` |
 
 Persist the chosen rules with the room so initial start and rematch use the same configuration. Broadcast enough information for the lobby, HUD, reconnect, and result screens to describe the authoritative match. If quick play supports multiple rule sets, pair only compatible requests and clean up each queue correctly.
+
+All online modes share the multiplayer admission limit in `server/admission.ts`; do not create a separate bypass around it. Keep admission waiting, opponent search and site presence distinct. Retain ticket release and room ownership rules on cancel, disconnect, expiry and reconnect; solo remains available outside that limit.
 
 Keep scoring, timers, movement constraints, and collision changes in shared simulation. The Node server calls the same simulation as solo. Clients send validated inputs, never trusted positions or scores. The engine currently duplicates movement speed/acceleration and field clamps for prediction; update that code when authoritative movement changes.
 
