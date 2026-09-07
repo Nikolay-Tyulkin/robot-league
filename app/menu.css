@@ -15,8 +15,16 @@
 .mode-home .creator-card { position: static; margin-top: auto; padding: 13px 0 0; max-width: none; border: 0; background: transparent; }
 .mode-home .creator-links { display: inline-flex; }
 .mode-home .creator-name { margin: 0; }
-.preview-caption { position: absolute; bottom: 15%; right: 3%; color: #f3d08a; font: 21px Impact, sans-serif; letter-spacing: 1.2px; text-shadow: 2px 2px #12272b; }
+.home-preview-footer { position: absolute; bottom: 0; right: 0; width: min(360px, 49%); display: grid; gap: 18px; }
+.preview-caption { color: #f3d08a; font: 21px Impact, sans-serif; letter-spacing: 1.2px; text-shadow: 2px 2px #12272b; }
 .preview-caption small { display: block; font: 800 9px 'Segoe UI', sans-serif; letter-spacing: 1.3px; color: #d7dfc9; margin: 8px 0 0 15px; }
+.project-link { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px; border: 1px solid #80978a; border-left: 3px solid #f2bd50; border-radius: 2px; background: #1d3034ed; color: #f3e6c8; box-shadow: 3px 3px #112126; text-decoration: none; pointer-events: auto; }
+.project-link > span { flex: 1; min-width: 0; }
+.project-link strong { display: block; font-size: 14px; line-height: 1.4; }
+.project-link small { display: block; margin-top: 3px; font-size: 11px; line-height: 1.4; color: #b8cbc0; }
+.project-link > svg { width: 20px; height: 20px; flex-shrink: 0; color: #f2bd50; }
+.project-link:hover { border-color: #f2bd50; background: #344b49; }
+.project-link:focus-visible { outline: 2px solid #f2bd50; outline-offset: 4px; }
 .menu-layout:not(.mode-home) .menu-panel { width: min(680px, 73vw); max-height: 100%; padding: 18px 20px; background: #1d3034ed; border: 1px solid #748a7b; box-shadow: 5px 5px #112026; }
 .submenu-header { display: flex; gap: 18px; align-items: center; border-bottom: 1px solid #8c997657; padding-bottom: 14px; margin-bottom: 18px; }
 .submenu-header h2 { margin: 0; color: #f1c46a; font: 28px Impact, sans-serif; letter-spacing: 1px; }
@@ -73,8 +81,12 @@
   .mode-home .creator-name span { font-size: 8px; }
   .mode-home .creator-name strong { font-size: 13px; }
   .mode-home .creator-links a { min-height: 44px; min-width: 44px; }
-  .preview-caption { bottom: 4%; right: 3%; font-size: 17px; }
+  .home-preview-footer { gap: 10px; }
+  .preview-caption { font-size: 17px; }
   .preview-caption small { font-size: 8px; letter-spacing: .7px; margin-top: 5px; }
+  .project-link { min-height: 48px; padding: 6px 9px; gap: 8px; }
+  .project-link small { margin-top: 1px; }
+  .project-link > svg { width: 16px; height: 16px; }
   .menu-layout:not(.mode-home) { inset: 56px var(--safe-right) var(--safe-bottom) var(--safe-left); }
   .menu-layout:not(.mode-home) .menu-panel { width: 100%; height: 100%; padding: 4px 12px 10px; overflow: visible; }
   .submenu-header { padding-bottom: 2px; margin-bottom: 7px; gap: 12px; }

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Copy, Flag, Footprints, Fullscreen, Gamepad2, HelpCircle, LoaderCircle, Radio, Sun, Users, Volume2, VolumeX, Wind, X, Zap, Camera, Pause, RotateCw, Smartphone } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Code2, Copy, Flag, Footprints, Fullscreen, Gamepad2, HelpCircle, LoaderCircle, Radio, Sun, Users, Volume2, VolumeX, Wind, X, Zap, Camera, Pause, RotateCw, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -151,7 +151,12 @@ export function Football() {
         {!ready && !error && <div className="asset-loading"><LoaderCircle size={16} className="spin" /> ASSEMBLING ROBOTS…</div>}
         {screen === 'menu' && menuPage === 'home' && <RobotCredits open={robotsOpen} onOpenChange={setRobotsOpen} showTrigger={false} />}
       </section>
-      {screen === 'menu' && menuPage === 'home' && <div className="preview-caption"><span className="live-dot" /> WATTI × MICRODUCK <small>REFEREED BY REACHY MINI</small></div>}
+      {screen === 'menu' && menuPage === 'home' && <div className="home-preview-footer">
+        <div className="preview-caption"><span className="live-dot" /> WATTI × MICRODUCK <small>REFEREED BY REACHY MINI</small></div>
+        <a className="project-link" href="https://github.com/Nikolay-Tyulkin/robot-league" target="_blank" rel="noopener noreferrer">
+          <Code2 aria-hidden="true" /><span><strong>Clone it. Mod it. Have fun.</strong><small>Robot League on GitHub</small></span><ArrowUpRight aria-hidden="true" />
+        </a>
+      </div>}
     </div>}
 
     {playing && state && <>
