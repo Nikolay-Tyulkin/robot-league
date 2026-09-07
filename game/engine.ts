@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { buildArena, type Arena } from './arena';
 import { Robot } from './robots';
 import { Sound } from './sound';
-import { createMatch, step, idleInput, aiInput, DT, clamp, ROBOT_KINDS, ROBOT_NAMES, selectSoloOpponent, type MatchState, type Input, type RobotKind, type SoloOpponent } from './sim';
+import { createMatch, step, idleInput, aiInput, DT, clamp, ROBOT_KINDS, ROBOT_NAMES, selectSoloOpponent, isVaulting, playerMovementSpeed, type MatchState, type Input, type RobotKind, type SoloOpponent } from './sim';
 import { TouchInput, TOUCH_LAYOUT_QUERY } from './touch-input';
 import { mobileCamera } from './mobile-camera';
+import { flashPresentation } from './skill-effects';
 
 type Particle = { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; max: number };
 export type EngineInfo = { state: MatchState; mode: 'demo' | 'solo' | 'online'; player: number; fps: number };
@@ -25,6 +26,7 @@ export class GameEngine {
   private keys = new Set<string>();
   private shot = false;
   private tap = false;
+  private skill = false;
   private disposed = false;
   private particles: Particle[] = [];
   private particleGeometry = new THREE.IcosahedronGeometry(.065, 0);
@@ -94,7 +96,7 @@ export class GameEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.mobileMedia.matches ? 1.25 : 1.7));
     this.renderer.setSize(width, height); this.camera.aspect = width / Math.max(1, height); this.camera.updateProjectionMatrix();
   };
-  clearControls() { this.keys.clear(); this.shot = this.tap = false; this.touch.clear(); this.onInput?.({ ...idleInput(), seq: ++this.sequence }); }
+  clearControls() { this.keys.clear(); this.shot = this.tap = this.skill = false; this.touch.clear(); this.onInput?.({ ...idleInput(), seq: ++this.sequence }); }
   setControlsBlocked(blocked: boolean) { this.controlsBlocked = blocked; if (blocked) this.clearControls(); }
   cycleCamera() { this.cameraMode = (this.cameraMode + 1) % 2; this.resize(); }
   private editable = (e: KeyboardEvent) => (e.target as HTMLElement)?.closest('input,textarea,select,[role="dialog"],button');
@@ -102,7 +104,8 @@ export class GameEngine {
     if (this.editable(e) || this.controlsBlocked) return;
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
     this.keys.add(e.code);
-    if (e.code === 'KeyE' && !e.repeat) this.tap = true;
+    if (e.code === 'KeyQ' && !e.repeat) this.tap = true;
+    if (e.code === 'KeyE' && !e.repeat) this.skill = true;
     if (e.code === 'KeyC' && !e.repeat) this.cycleCamera();
     if (e.code === 'Escape' && !e.repeat && this.mode === 'solo') this.pause();
   };
@@ -113,7 +116,7 @@ export class GameEngine {
     if (this.controlsBlocked) return { ...idleInput(), seq: ++this.sequence };
     const has = (...codes: string[]) => codes.some(k => this.keys.has(k));
     const touch = this.touch.read();
-    return { seq: ++this.sequence, x: clamp(Number(has('KeyD', 'ArrowRight')) - Number(has('KeyA', 'ArrowLeft')) + touch.x, -1, 1), z: clamp(Number(has('KeyS', 'ArrowDown')) - Number(has('KeyW', 'ArrowUp')) + touch.z, -1, 1), sprint: has('ShiftLeft', 'ShiftRight') || touch.sprint, charge: has('Space') || touch.charge, shoot: this.shot || touch.shoot, tap: this.tap || touch.tap };
+    return { seq: ++this.sequence, x: clamp(Number(has('KeyD', 'ArrowRight')) - Number(has('KeyA', 'ArrowLeft')) + touch.x, -1, 1), z: clamp(Number(has('KeyS', 'ArrowDown')) - Number(has('KeyW', 'ArrowUp')) + touch.z, -1, 1), sprint: has('ShiftLeft', 'ShiftRight') || touch.sprint, charge: has('Space') || touch.charge, shoot: this.shot || touch.shoot, tap: this.tap || touch.tap, skill: this.skill || touch.skill };
   }
   startSolo(kind: RobotKind, name: string, choice: SoloOpponent = 'random') {
     const opponent = selectSoloOpponent(choice, kind);
@@ -127,7 +130,8 @@ export class GameEngine {
     if (restarted) { this.lastEvent = 0; this.stepDistance = [0, 0]; this.prediction.ready = false; this.robots.forEach(robot => robot.resetPose()); }
     this.previousState = restarted ? state : this.state; this.state = state; this.receivedAt = performance.now();
     const p = state.players[this.player], local = this.prediction;
-    if (!local.ready || state.phase !== 'play' || Math.hypot(local.x - p.x, local.z - p.z) > 1) Object.assign(local, { x: p.x, z: p.z, vx: p.vx, vz: p.vz, ready: true });
+    this.sequence = Math.max(this.sequence, p.ack);
+    if (!local.ready || state.phase !== 'play' || isVaulting(p) || (this.previousState && isVaulting(this.previousState.players[this.player])) || Math.hypot(local.x - p.x, local.z - p.z) > 1) Object.assign(local, { x: p.x, z: p.z, vx: p.vx, vz: p.vz, ready: true });
     else { local.x += (p.x - local.x) * .45; local.z += (p.z - local.z) * .45; }
   }
   menu() { this.mode = 'demo'; this.state = createMatch(); this.state.phase = 'play'; this.robots.forEach(robot => robot.resetPose()); this.clearControls(); this.lastEvent = 0; this.notify(); }
@@ -148,18 +152,19 @@ export class GameEngine {
         while (this.accumulator >= DT) {
           const input = this.input();
           step(this.state, [input, aiInput(this.state, 1)]);
-          this.shot = this.tap = false; this.touch.consumeEdges(); this.accumulator -= DT;
+          this.shot = this.tap = this.skill = false; this.touch.consumeEdges(); this.accumulator -= DT;
         }
       } else {
         this.accumulator = 0;
         const i = this.input(), p = this.prediction;
-        if (this.state.phase === 'play') {
-          const len = Math.max(1, Math.hypot(i.x, i.z)), speed = (i.sprint && this.state.players[this.player].energy > .03 ? 4.8 : 3.25) * (i.charge ? .72 : 1), a = 1 - Math.exp(-11 * elapsed);
+        const localPlayer = this.state.players[this.player];
+        if (this.state.phase === 'play' && !isVaulting(localPlayer)) {
+          const len = Math.max(1, Math.hypot(i.x, i.z)), speed = playerMovementSpeed(localPlayer, i), a = 1 - Math.exp(-11 * elapsed);
           p.vx += (i.x / len * speed - p.vx) * a; p.vz += (i.z / len * speed - p.vz) * a;
           p.x = clamp(p.x + p.vx * elapsed, -7.14, 7.14); p.z = clamp(p.z + p.vz * elapsed, -4.14, 4.14);
         }
         this.onlineTime += elapsed;
-        if (this.onlineTime >= 1 / 30 || i.shoot || i.tap) { this.onInput?.(i); this.onlineTime = 0; this.shot = this.tap = false; this.touch.consumeEdges(); }
+        if (this.onlineTime >= 1 / 30 || i.shoot || i.tap || i.skill) { this.onInput?.(i); this.onlineTime = 0; this.shot = this.tap = this.skill = false; this.touch.consumeEdges(); }
       }
       this.renderState(now / 1000);
     }
@@ -192,26 +197,31 @@ export class GameEngine {
         const turn = Math.atan2(Math.sin(p.yaw - previous.yaw), Math.cos(p.yaw - previous.yaw));
         displayed = { ...p, x: previous.x + (p.x - previous.x) * alpha, z: previous.z + (p.z - previous.z) * alpha,
           yaw: previous.yaw + turn * alpha, distance: previous.distance + (p.distance - previous.distance) * alpha,
-          actionTime: previous.action === p.action ? previous.actionTime + (p.actionTime - previous.actionTime) * alpha : p.actionTime };
-        if (p.id === this.player && this.prediction.ready) Object.assign(displayed, { x: this.prediction.x, z: this.prediction.z });
+          actionTime: previous.action === p.action ? previous.actionTime + (p.actionTime - previous.actionTime) * alpha : p.actionTime,
+          skillTime: previous.skillTime >= p.skillTime ? previous.skillTime + (p.skillTime - previous.skillTime) * alpha : p.skillTime,
+          staggered: previous.staggered >= p.staggered ? previous.staggered + (p.staggered - previous.staggered) * alpha : p.staggered,
+          blinded: previous.blinded >= p.blinded ? previous.blinded + (p.blinded - previous.blinded) * alpha : p.blinded };
+        if (p.id === this.player && this.prediction.ready && !isVaulting(displayed)) Object.assign(displayed, { x: this.prediction.x, z: this.prediction.z });
       }
       const robot = this.robots.get(`${p.id}:${p.kind}`);
-      if (robot) { robot.root.visible = true; robot.root.scale.setScalar(this.mode === 'demo' ? 1.4 : 1); robot.animate(displayed, s, time); }
+      if (robot) { robot.root.visible = true; robot.root.scale.setScalar(this.mode === 'demo' ? 1.4 : 1); robot.animate(displayed, s, time); robot.fitStatus(this.camera, this.viewportHeight); }
       if (p.distance - this.stepDistance[p.id] > (p.kind === 'watti' ? .84 : .71)) {
         this.stepDistance[p.id] = p.distance;
-        if (this.mode !== 'demo' && s.phase === 'play') this.sound.step(p.kind, Math.hypot(p.vx, p.vz) > 3.4);
-        if (Math.hypot(p.vx, p.vz) > 2) this.burst(p.x, .06, p.z, 3, false);
+        if (this.mode !== 'demo' && s.phase === 'play' && !isVaulting(p)) this.sound.step(p.kind, Math.hypot(p.vx, p.vz) > 3.4);
+        if (Math.hypot(p.vx, p.vz) > 2 && !isVaulting(p)) this.burst(p.x, .06, p.z, 3, false);
       }
     }
     const referee = this.robots.get('referee');
     if (referee) { referee.root.visible = true; referee.referee(s, time); }
     const b = s.ball, prev = this.mode === 'online' ? this.previousState?.ball ?? b : b;
+    this.arena.ball.visible = this.mode === 'demo' || flashPresentation(s, this.player).ballVisible;
     this.arena.ball.position.set(THREE.MathUtils.lerp(prev.x, b.x, alpha), THREE.MathUtils.lerp(prev.y, b.y, alpha), THREE.MathUtils.lerp(prev.z, b.z, alpha));
     this.arena.ball.rotation.set(b.spin * .3, b.spin * .2, -b.spin);
     for (const e of s.events) if (e.id > this.lastEvent) {
       if (this.mode !== 'demo') this.sound.play(e);
       if (e.type === 'goal') this.burst(e.x, .7, e.z, 38, true);
       if (e.type === 'kick') this.burst(e.x, .2, e.z, 9, false);
+      if (e.type === 'skill') this.burst(e.x, .12, e.z, 7, true);
       this.lastEvent = e.id;
     }
   }

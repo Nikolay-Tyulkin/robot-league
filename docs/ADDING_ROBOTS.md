@@ -43,21 +43,25 @@ Do not send a new robot through another kind’s animation branch. Add an explic
 | Checkpoint | Required review |
 | --- | --- |
 | `game/sim.ts`: `ROBOT_KINDS`, `ROBOT_NAMES`, `RobotKind`, `createMatch` | Extend the shared kind/name list and review deterministic defaults and solo randomization |
+| `game/sim.ts`: `SKILLS`, `skillsStep`, `aiInput` | Define the named skill, bounded effects and tactical AI use; preserve the shared 10-second cooldown and input deduplication |
 | `server/index.ts`: kind parsing, `join`, `select-robot`, queue pairing, `begin` | Admit the new kind, allocate valid opponents, preserve room selection when starting/rematching and sender ownership/readiness rules |
 | `game/engine.ts`: `load`, `startSolo`, `renderState` | Load the asset; name the AI correctly; set appropriate footsteps/presentation |
 | `game/robots.ts`: `load`, `animate`, cleanup | Add orientation/material/rig adaptation and animation; retain resource disposal |
 | `game/sound.ts`: `step` | Choose an intentional footstep/servo character |
 | `game/Football.tsx` | Selector, lobby, score panels, player HUD, and robot-specific help |
+| `game/TouchControls.tsx` | Choose the skill icon and retain the mobile cooldown display and independent pointer ownership |
 | `game/credits.ts` and `game/RobotCredits.tsx` | Real author/source links and the correct asset terms |
 | `game/mobile-camera.ts` and camera tests | Include the robot's maximum visible height and any new bounds |
 
-All players currently share movement, collision, energy, and kick values. A visual addition should preserve that balance. If the feature includes different movement rules, implement them in shared simulation and update the engine's duplicated local prediction constants.
+All players share base movement, collision, energy, and kick values; skills apply brief, bounded exceptions. A visual addition should preserve that balance. Put different movement rules in shared simulation and keep `playerMovementSpeed` and the engine's prediction consistent.
 
 The engine stores independent `Robot` instances per player ID and kind, plus a separate referee. Preserve this separation so mirrored opponents keep independent transforms, animation and team rings. Only active models are visible. Supporting more than two players is a larger rules/network/UI change; see [Adding modes](ADDING_MODES.md).
 
 ## 4. Animate from game state
 
 Use `Player.distance` for locomotion cadence and `vx/vz` for activity. Use `action`, `actionTime`, and `charge` for preparation, contact, and recovery. Tap contacts at 0.09 seconds; kick contact is 0.19 seconds. The simulation owns the ball impulse. Presentation should not create another impulse or alter score.
+
+Animate a skill from `skillTime`, using its shared duration constant; `blinded` and `staggered` drive temporary reaction effects. Keep timers and hit detection in the simulation. Clear presentation on kickoff and rematch, and keep ground-contact effects off during airborne skills.
 
 Keep supporting feet planted, interpolate poses smoothly, respect limits, and keep connected components attached. Test both attack directions and both team colors. Give idle, walking, sprinting, charging, tap, kick, and celebration distinct readable states. Reset presentation when a new match begins and dispose added materials/geometries on teardown.
 

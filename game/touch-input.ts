@@ -2,7 +2,7 @@ import { clamp, type Input } from './sim';
 
 export const TOUCH_LAYOUT_QUERY = '(any-pointer: coarse), (max-height: 600px) and (orientation: landscape)';
 const PORTRAIT_QUERY = '(max-width: 600px) and (orientation: portrait), (any-pointer: coarse) and (orientation: portrait)';
-export type TouchAction = 'charge' | 'tap' | 'sprint';
+export type TouchAction = 'charge' | 'tap' | 'sprint' | 'skill';
 
 export function stickVector(x: number, y: number, radius: number) {
   const distance = Math.hypot(x, y), amount = Math.min(1, distance / Math.max(1, radius));
@@ -19,6 +19,7 @@ export class TouchInput {
   private actions = new Map<number, TouchAction>();
   private shoot = false;
   private tap = false;
+  private skill = false;
   beginMove(pointer: number) {
     if (this.moveOwner !== null || this.actions.has(pointer)) return false;
     this.moveOwner = pointer; return true;
@@ -30,23 +31,30 @@ export class TouchInput {
   }
   beginAction(pointer: number, action: TouchAction) {
     if (this.actions.has(pointer) || this.moveOwner === pointer) return false;
+    const wasHeld = this.held(action);
     this.actions.set(pointer, action);
     if (action === 'tap') this.tap = true;
+    if (action === 'skill' && !wasHeld) this.skill = true;
     return true;
   }
   release(pointer: number, cancelled = false) {
     if (this.moveOwner === pointer) { this.moveOwner = null; this.x = this.z = 0; }
     const action = this.actions.get(pointer); this.actions.delete(pointer);
     if (action === 'charge' && !cancelled && !this.held('charge')) this.shoot = true;
+    if (action === 'skill' && cancelled && !this.held('skill')) this.skill = false;
   }
   held(action: TouchAction) { return [...this.actions.values()].includes(action); }
+  cancelAction(action: TouchAction) {
+    for (const [pointer, ownedAction] of this.actions) if (ownedAction === action) this.release(pointer, true);
+  }
   pulse(action: TouchAction) {
     if (action === 'charge') this.shoot = true;
     else if (action === 'tap') this.tap = true;
+    else if (action === 'skill') { if (!this.held('skill')) this.skill = true; }
     else if (this.actions.has(-2)) this.release(-2); else this.beginAction(-2, 'sprint');
   }
-  read(): Omit<Input, 'seq'> { return { x: this.x, z: this.z, charge: this.held('charge'), sprint: this.held('sprint'), shoot: this.shoot, tap: this.tap }; }
-  consumeEdges() { this.shoot = this.tap = false; }
+  read(): Omit<Input, 'seq'> { return { x: this.x, z: this.z, charge: this.held('charge'), sprint: this.held('sprint'), shoot: this.shoot, tap: this.tap, skill: this.skill }; }
+  consumeEdges() { this.shoot = this.tap = this.skill = false; }
   clear() { this.moveOwner = null; this.x = this.z = 0; this.actions.clear(); this.consumeEdges(); }
 }
 

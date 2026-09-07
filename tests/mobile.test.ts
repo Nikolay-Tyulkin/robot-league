@@ -13,7 +13,7 @@ void test('three fingers can move, sprint and shoot independently', () => {
   assert.equal(input.beginAction(10, 'charge'), false);
   input.beginAction(11, 'charge'); input.beginAction(12, 'sprint');
   input.move(11, -1, 1);
-  assert.deepEqual(input.read(), { x: .8, z: -.6, charge: true, sprint: true, shoot: false, tap: false });
+  assert.deepEqual(input.read(), { x: .8, z: -.6, charge: true, sprint: true, shoot: false, tap: false, skill: false });
   input.release(11);
   assert.equal(input.read().shoot, true);
   assert.equal(input.read().sprint, true);
@@ -34,7 +34,30 @@ void test('cancel, pause and late pointerup cannot fire a held shot', () => {
   input.beginAction(2, 'charge'); input.beginAction(3, 'tap'); input.beginAction(4, 'sprint');
   input.clear(); [1,2,3,4].forEach(id => input.release(id));
   const { seq: _seq, ...idle } = idleInput();
-  assert.deepEqual(input.read(), idle);
+  assert.deepEqual(input.read(), { ...idle, skill: false });
+});
+
+void test('touch skills fire once per press and preserve movement and held controls', () => {
+  const input = new TouchInput();
+  input.beginMove(1); input.move(1, .5, -.5); input.beginAction(2, 'sprint');
+  assert.equal(input.beginAction(1, 'skill'), false, 'the joystick finger cannot also own a skill');
+  input.beginAction(3, 'skill'); assert.equal(input.read().skill, true);
+  input.consumeEdges(); input.beginAction(4, 'skill');
+  assert.equal(input.read().skill, false, 'a second finger cannot retrigger an already held skill');
+  input.release(3); input.release(4); input.release(4, true);
+  assert.equal(input.read().skill, false, 'release and lost capture are not new activations');
+  assert.equal(input.read().sprint, true); assert.equal(input.read().x, .5);
+  input.beginAction(3, 'skill'); input.release(3, true);
+  assert.equal(input.read().skill, false, 'cancellation drops an unconsumed activation');
+  input.pulse('skill'); assert.equal(input.read().skill, true, 'assistive activation can use the skill');
+  input.consumeEdges(); assert.equal(input.read().skill, false);
+  input.beginAction(3, 'skill'); input.consumeEdges(); input.cancelAction('skill');
+  assert.equal(input.held('skill'), false, 'a newly disabled skill button releases its pointer ownership');
+  assert.equal(input.read().sprint, true, 'disabling a skill leaves the other finger held');
+  assert.equal(input.read().x, .5);
+  assert.equal(input.beginAction(3, 'skill'), true, 'the pointer can activate again after cooldown');
+  input.beginAction(3, 'skill'); input.clear(); input.release(3);
+  assert.equal(input.read().skill, false, 'navigation clears pending skill input');
 });
 
 void test('two fingers on shoot release only when the last finger lifts', () => {

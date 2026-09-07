@@ -41,6 +41,10 @@
 .room-player > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-player > span:last-child { flex-shrink: 0; }
 .room-selection-hint { display: block; font-size: 11px; }
+.robot-skill-hint { margin: 9px 0 0; padding-left: 8px; border-left: 2px solid #dcbb74; font-size: 11px; line-height: 1.45; color: #b8cbc0; }
+.robot-skill-hint strong { display: block; color: #efd08a; font-size: 11px; }
+.robot-skill-hint kbd { padding: 0 3px; margin-right: 3px; border: 1px solid #9d967b; border-radius: 2px; font: 900 10px 'Segoe UI', sans-serif; }
+.robot-skill-hint > span { display: block; margin-top: 2px; }
 .search-status { padding: 22px 0; color: #f2ce89; }
 .search-status > svg { margin-bottom: 16px; }
 .queue-count { margin-top: 14px; padding-left: 12px; border-left: 3px solid #f2bd50; }
@@ -93,6 +97,11 @@
   .room-code small { font-size: 8px; }
   .room-details .room-player { min-height: 44px; padding: 4px 0; }
   .room-selection-hint { font-size: 10px; }
+  .robot-skill-hint { margin-top: 5px; padding-left: 6px; font-size: 10px; line-height: 1.3; }
+  .robot-skill-hint strong { font-size: 10px; }
+  .robot-skill-hint > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .setup-column:has(.robot-skill-hint) .nickname-field { margin-top: 6px; }
+  .room-setup .room-selection-hint { margin: 5px 0; }
   .menu-panel > .asset-loading, .menu-panel > .error-message { position: absolute; right: 12px; bottom: 4px; max-width: 48%; margin: 0; padding: 5px 8px; background: #243337f5; font-size: 11px; z-index: 2; }
 }
 @media (orientation: landscape) and (max-height: 360px) {

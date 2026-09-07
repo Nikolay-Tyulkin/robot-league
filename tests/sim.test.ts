@@ -1,8 +1,150 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMatch, step, idleInput, aiInput, FIELD, ROBOT_KINDS, ROBOT_NAMES, isRobotKind, selectSoloOpponent, type MatchState, type Input } from '../game/sim.ts';
+import { createMatch, step, idleInput, aiInput, FIELD, ROBOT_KINDS, ROBOT_NAMES, isRobotKind, selectSoloOpponent, SKILL_COOLDOWN, REACHY_VAULT_DURATION, MICRODUCK_TRIP_RANGE, playerMovementSpeed, isVaulting, type MatchState, type Input, type RobotKind } from '../game/sim.ts';
 const playing = () => { const s=createMatch();s.phase='play';return s; };
 const advance=(s:MatchState,seconds:number)=>{for(let i=0;i<seconds*60;i++)step(s,[idleInput(),idleInput()]);};
+const skillMatch = (kind: RobotKind, opponent: RobotKind = 'watti') => {
+  const s = createMatch(kind, undefined, opponent); s.phase = 'play';
+  Object.assign(s.players[0], { x: 0, z: 0, yaw: Math.PI / 2 });
+  Object.assign(s.players[1], { x: 1.1, z: 0, yaw: -Math.PI / 2 });
+  Object.assign(s.ball, { x: -3, z: 3 });
+  return s;
+};
+
+void test('Flash affects a nearby opponent ahead for 1.2 seconds without disabling human movement', () => {
+  const s = skillMatch('watti');
+  step(s, [{ ...idleInput(), seq: 1, skill: true }, { ...idleInput(), z: 1 }]);
+  assert.equal(s.players[1].blinded, 1.2); assert.ok(s.players[1].vz > 0);
+  assert.equal(s.players[0].skillCooldown, SKILL_COOLDOWN);
+  assert.equal(playerMovementSpeed(s.players[1], idleInput()), 3.25);
+  assert.deepEqual(s.events.map(e => [e.type, e.player, e.x, e.z]), [['skill', 0, 0, 0]]);
+  const blindAI = aiInput(s, 1);
+  assert.equal(blindAI.x, 0); assert.equal(blindAI.z, 0);
+  assert.equal(blindAI.shoot, false); assert.equal(blindAI.skill, false);
+  advance(s, 1.22); assert.equal(s.players[1].blinded, 0);
+});
+
+void test('Flash and Trip miss behind, beside and beyond their cones but still consume cooldown', () => {
+  for (const kind of ['watti', 'microduck'] as const) {
+    for (const position of [{ x: -1.1, z: 0 }, { x: 0, z: 1.1 }, { x: kind === 'watti' ? 2.61 : MICRODUCK_TRIP_RANGE + .01, z: 0 }]) {
+      const s = skillMatch(kind); Object.assign(s.players[1], position);
+      step(s, [{ ...idleInput(), seq: 1, skill: true }, idleInput()]);
+      assert.equal(s.players[1].blinded, 0, `${kind} flash must miss ${JSON.stringify(position)}`);
+      assert.equal(s.players[1].staggered, 0, `${kind} trip must miss ${JSON.stringify(position)}`);
+      assert.equal(s.players[0].skillCooldown, 10);
+    }
+  }
+});
+
+void test('Trip reaches an opponent just inside its wider 1.5 metre front range', () => {
+  const s = skillMatch('microduck'); Object.assign(s.players[1], { x: MICRODUCK_TRIP_RANGE - .01, z: 0 });
+  step(s, [{ ...idleInput(), seq: 1, skill: true }, idleInput()]);
+  assert.equal(s.players[1].staggered, .55);
+});
+
+void test('Trip slows immediately, interrupts pending kicks and briefly blocks shooting and skills', () => {
+  const s = skillMatch('microduck'), target = s.players[1];
+  Object.assign(target, { action: 'kick', actionTime: .18, actionPower: 1, charge: .8, vx: 3.25 });
+  step(s, [{ ...idleInput(), seq: 1, skill: true }, { ...idleInput(), seq: 1, x: 1, shoot: true, charge: true }]);
+  assert.equal(target.staggered, .55); assert.equal(target.action, 'none'); assert.equal(target.charge, 0);
+  assert.ok(target.vx <= 3.25 * .35 + .000001); assert.ok(target.vx >= 0, 'a trip must not knock back');
+  assert.equal(playerMovementSpeed(target, idleInput()), 3.25 * .35);
+  step(s, [idleInput(), { ...idleInput(), seq: 2, skill: true, tap: true }]);
+  assert.equal(target.action, 'none'); assert.equal(target.skillCooldown, 0);
+  advance(s, .56); assert.equal(target.staggered, 0);
+  step(s, [idleInput(), { ...idleInput(), seq: 3, skill: true }]);
+  assert.equal(target.skillCooldown, 10, 'a fresh press works after recovering');
+});
+
+void test('simultaneous skills are evaluated fairly for both seat orders and Vault evades ground skills', () => {
+  const mirror = skillMatch('microduck', 'microduck');
+  step(mirror, [{ ...idleInput(), seq: 1, skill: true }, { ...idleInput(), seq: 1, skill: true }]);
+  assert.deepEqual(mirror.players.map(p => p.staggered), [.55, .55]);
+  assert.deepEqual(mirror.players.map(p => p.skillCooldown), [10, 10]);
+  for (const kind of ['watti', 'microduck'] as const) for (const seat of [0, 1]) {
+    const s = skillMatch(seat === 0 ? 'reachy' : kind, seat === 0 ? kind : 'reachy');
+    step(s, [{ ...idleInput(), seq: 1, skill: true }, { ...idleInput(), seq: 1, skill: true }]);
+    assert.equal(s.players[seat].blinded, 0); assert.equal(s.players[seat].staggered, 0);
+    assert.equal(isVaulting(s.players[seat]), true);
+  }
+});
+
+void test('Vault crosses an opponent smoothly without striking or carrying a ball, then restores collision', () => {
+  const s = skillMatch('reachy');
+  const p = s.players[0], opponent = s.players[1], start = { x: opponent.x, z: opponent.z };
+  // The grounded opponent is just outside ball contact; the vault crosses it.
+  Object.assign(s.ball, { x: .55, z: -.35 });
+  const ballStart = { x: s.ball.x, z: s.ball.z };
+  step(s, [{ ...idleInput(), seq: 1, skill: true, shoot: true, charge: true }, idleInput()]);
+  assert.equal(p.skillTime, REACHY_VAULT_DURATION); assert.equal(p.action, 'none'); assert.equal(p.charge, 0);
+  let previous = p.x;
+  for (let i = 0; i < 36; i++) {
+    step(s, [{ ...idleInput(), seq: i + 2, z: 1, shoot: true, charge: true }, idleInput()]);
+    assert.ok(p.x - previous <= 3.4 / 60 + .000001); previous = p.x;
+    assert.equal(p.yaw, Math.PI / 2, 'steering cannot change direction in midair');
+    assert.equal(p.action, 'none');
+  }
+  assert.ok(p.x > opponent.x + .92); assert.ok(p.x < 2.3);
+  assert.deepEqual({ x: opponent.x, z: opponent.z }, start);
+  assert.deepEqual({ x: s.ball.x, z: s.ball.z }, ballStart);
+  advance(s, .15); assert.equal(isVaulting(p), false);
+  assert.ok(Math.hypot(p.x - opponent.x, p.z - opponent.z) >= FIELD.player * 2 - .000001);
+});
+
+void test('Vault stays inside walls and resolves a landing overlap beside the board', () => {
+  const s = skillMatch('reachy');
+  Object.assign(s.players[0], { x: FIELD.x - FIELD.player - 1.7, z: 2.5 });
+  Object.assign(s.players[1], { x: FIELD.x - FIELD.player, z: 2.5 });
+  step(s, [{ ...idleInput(), seq: 1, skill: true }, idleInput()]);
+  for (let i = 0; i < 48; i++) {
+    step(s, [idleInput(), idleInput()]);
+    for (const p of s.players) assert.ok(Math.abs(p.x) <= FIELD.x - FIELD.player && Math.abs(p.z) <= FIELD.z - FIELD.player);
+  }
+  assert.equal(isVaulting(s.players[0]), false);
+  assert.ok(Math.hypot(s.players[0].x - s.players[1].x, s.players[0].z - s.players[1].z) >= FIELD.player * 2 - .000001);
+});
+
+void test('all skills require a fresh press and sequence and cannot repeat through the ten-second cooldown', () => {
+  for (const kind of ROBOT_KINDS) {
+    const s = createMatch(kind); s.phase = 'play';
+    for (let seq = 1; seq <= 620; seq++) step(s, [{ ...idleInput(), seq, skill: true }, idleInput()]);
+    assert.equal(s.events.filter(e => e.type === 'skill').length, 1, `${kind}: holding must not auto-cast`);
+    assert.equal(s.players[0].skillCooldown, 0);
+    step(s, [{ ...idleInput(), seq: 621 }, idleInput()]);
+    step(s, [{ ...idleInput(), seq: 620, skill: true }, idleInput()]);
+    assert.equal(s.events.filter(e => e.type === 'skill').length, 1, 'an old sequence cannot replay an edge');
+    step(s, [{ ...idleInput(), seq: 622 }, idleInput()]);
+    step(s, [{ ...idleInput(), seq: 623, skill: true }, idleInput()]);
+    assert.equal(s.events.filter(e => e.type === 'skill').length, 2);
+    advance(s, 1);
+    step(s, [{ ...idleInput(), seq: 624, skill: true }, idleInput()]);
+    assert.equal(s.events.filter(e => e.type === 'skill').length, 2, 'new edges cannot bypass cooldown');
+  }
+});
+
+void test('skills freeze on pause, clear effects after a goal and retain cooldown until a new match', () => {
+  const s = skillMatch('watti'); step(s, [{ ...idleInput(), seq: 1, skill: true }, idleInput()]);
+  s.phase = 'paused'; const paused = structuredClone(s); advance(s, 2); assert.deepEqual(s, paused);
+  s.phase = 'play'; Object.assign(s.ball, { x: 7.7, z: 0, vx: 15, vz: 0 });
+  advance(s, .03); assert.equal(s.phase, 'goal');
+  for (const p of s.players) assert.deepEqual([p.skillTime, p.blinded, p.staggered], [0, 0, 0]);
+  const cooldown = s.players[0].skillCooldown; advance(s, 3);
+  assert.equal(s.phase, 'countdown'); assert.equal(s.players[0].skillCooldown, cooldown);
+  const fresh = createMatch();
+  for (const p of fresh.players) assert.deepEqual([p.skillCooldown, p.skillTime, p.blinded, p.staggered], [0, 0, 0, 0]);
+});
+
+void test('skills pressed during countdown do not arm at kickoff and AI uses only tactical available skills', () => {
+  const s = skillMatch('watti'); s.phase = 'countdown'; s.phaseTime = .01;
+  step(s, [{ ...idleInput(), seq: 1, skill: true }, idleInput()]);
+  step(s, [{ ...idleInput(), seq: 2, skill: true }, idleInput()]);
+  assert.equal(s.players[0].skillCooldown, 0); assert.equal(s.events.some(e => e.type === 'skill'), false);
+  for (const kind of ROBOT_KINDS) {
+    const match = skillMatch(kind); Object.assign(match.ball, { x: kind === 'reachy' ? 2.3 : 1.5, z: 0 });
+    assert.equal(aiInput(match, 0).skill, true, `${kind} should use a tactical opportunity`);
+    match.players[0].skillCooldown = .1; assert.equal(aiInput(match, 0).skill, false);
+  }
+});
 void test('full crossing scores once, mirrored for both goals',()=>{
   for(const side of [-1,1]){const s=playing();s.ball.x=side*7.5;s.ball.vx=side*18;advance(s,.1);assert.equal(s.score[side>0?0:1],1);advance(s,1);assert.equal(s.score[side>0?0:1],1);}
 });

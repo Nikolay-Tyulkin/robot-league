@@ -24,6 +24,7 @@ The game has one shared TypeScript simulation: the solo game and authoritative m
 ## ✨ Features
 
 - **Three playable robots** — Watti, Microduck and Reachy Mini; mirror matches are supported.
+- **Robot skills** — Watti's Flash, Microduck's Trip and Reachy's Vault, each with a 10-second cooldown.
 - **Solo and multiplayer** — choose an AI opponent, find a quick match, or create a private room. Each player picks their own robot in the room.
 - **Built for touch** — keyboard input and landscape phone controls, with hold-and-release charged shots.
 - **Real model presentation** — CAD-derived models, rig-aware animation, comic outlines, a garage arena, and a separate referee.
@@ -68,9 +69,12 @@ npm run build:server
 | Move | WASD / arrows | Left stick |
 | Sprint | Hold Shift | Hold RUN |
 | Charged shot | Hold Space, then release | Hold SHOOT, then release |
-| Short hit | E | TAP |
+| Short hit | Q | TAP |
+| Robot skill | E | FLASH / TRIP / VAULT |
 | Camera | C | Camera button |
 | Solo pause | Escape | Pause button |
+
+Skills recharge in **10 seconds**, including missed uses. Watti briefly dazzles a nearby opponent in front; Microduck trips an opponent at close range; Reachy vaults forward through a rival, giving up ball contact and shooting while airborne. Watch your skill button or HUD for readiness.
 
 ## 🧠 Make it yours with an AI agent
 

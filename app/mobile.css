@@ -1,4 +1,19 @@
 .touch-controls, .rotate-notice { display: none; }
+.skill-status { position: relative; display: flex; align-items: center; gap: 7px; margin-top: 11px; padding: 9px 0 8px; border-top: 1px solid #80998955; color: #f2d68c; }
+.skill-status kbd { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid #d6bc73; border-radius: 2px; background: #14272c; font: 900 13px 'Segoe UI', sans-serif; }
+.skill-status strong { font-size: 12px; letter-spacing: .6px; }
+.skill-status > small { margin-left: auto; font-size: 10px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.skill-status.is-recharging { color: #b4c6bb; }
+.skill-meter { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #10242b; }
+.skill-meter i { display: block; height: 100%; background: #e2ba60; transition: width .1s linear; }
+.dazzle-haze { position: absolute; inset: 15% 12% 25%; z-index: -1; pointer-events: none; border-radius: 50%; background: radial-gradient(ellipse at 40% 42%, #fae4b952, #c4e7df24 43%, transparent 70%); filter: blur(8px); }
+.skill-effect-status { position: absolute; top: 190px; left: 50%; z-index: 20; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 6px 10px; border: 1px solid #e5c17c; box-shadow: 2px 2px #12232a; background: #203437e8; color: #f7dc9c; font: 900 11px 'Segoe UI', sans-serif; letter-spacing: 1px; pointer-events: none; }
+.skill-effect-status span { font-variant-numeric: tabular-nums; color: #e3e4d0; letter-spacing: 0; }
+.skill-effect-status.skill-hit-confirmation { color: #b6e5d8; border-color: #8ccbbe; }
+.arena-canvas { transition: filter .05s linear; }
+.skill-help-list { list-style: none; margin: 10px 0 15px; padding: 0 0 0 14px; border-left: 2px solid #debc70; }
+.skill-help-list li { margin: 9px 0; font-size: 12px; line-height: 1.5; color: #cdd8c5; }
+.skill-help-list strong { display: block; color: #f2d18e; }
 .arena-canvas canvas { touch-action: none; }
 .help-dialog[data-slot=dialog-content] { display: flex; flex-direction: column; max-height: calc(100dvh - 28px); overflow: hidden; }
 .help-dialog [data-slot=dialog-header] { flex-shrink: 0; padding-right: 28px; }
@@ -125,6 +140,8 @@
   .meter { height: 6px; margin-top: 5px; }
   .player-hud > small { font-size: 8px; letter-spacing: .3px; }
   .charge-meter { display: none; }
+  .player-hud .skill-status { display: none; }
+  .skill-effect-status { top: 59px; padding: 4px 8px; font-size: 10px; }
   .exit-match[data-slot=button] { right: calc(var(--safe-right) + 193px); bottom: var(--safe-bottom); min-height: 44px; height: 44px; min-width: 44px; padding: 7px; font-size: 10px; border: 0; background: #15262d9e; }
   .center-card { top: 50%; width: 360px; max-height: calc(100dvh - 28px); overflow-y: auto; padding: 16px 22px; transform: translate(-50%,-50%); border-width: 2px; }
   .center-card > svg { width: 24px; height: 24px; }
@@ -143,17 +160,23 @@
   .stick-cross:after { transform: rotate(90deg); }
   .stick-knob { position: absolute; left: calc(50% - 23px); top: calc(50% - 23px); width: 46px; height: 46px; display: grid; place-items: center; border: 2px solid #d5e6c4; border-radius: 50%; background: #397579; color: #e8f2d4; box-shadow: 2px 3px #14262c; }
   .stick-label { position: absolute; left: 0; right: 0; bottom: 5px; text-align: center; font-size: 9px; font-weight: 800; letter-spacing: 1px; color: #dbe8ce; }
-  .touch-actions { position: absolute; right: var(--safe-right); bottom: var(--safe-bottom); width: 180px; height: 126px; }
+  .touch-actions { position: absolute; right: var(--safe-right); bottom: var(--safe-bottom); width: 180px; height: 136px; }
   .touch-action { position: absolute; border: 2px solid #a3b5a6; box-shadow: 3px 4px #101d22d9; background: #233b40e8; color: #e9e7cc; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; gap: 3px; border-radius: 15px; font-size: 10px; font-weight: 900; letter-spacing: .4px; }
   .touch-action[aria-pressed=true] { border-color: #fff2c7; background: #558083; transform: translateY(2px); box-shadow: 1px 2px #101d22; }
-  .touch-sprint { width: 56px; height: 52px; left: 0; top: 0; border-color: #d8b058; color: #f5d376; }
+  .touch-sprint { width: 56px; height: 52px; left: 0; top: 10px; border-color: #d8b058; color: #f5d376; }
   .touch-tap { width: 62px; height: 58px; left: 0; bottom: 4px; }
+  .touch-skill { right: 0; top: 0; width: 82px; height: 44px; display: grid; grid-template-columns: 18px 1fr; grid-template-rows: 1fr 1fr; column-gap: 5px; row-gap: 0; padding: 5px 6px; border-color: #debd77; border-radius: 8px; color: #f7dda0; overflow: hidden; }
+  .touch-skill > svg { grid-row: 1 / 3; z-index: 1; }
+  .touch-skill > span:not(.skill-recharge) { font-size: 10px; line-height: 1.15; z-index: 1; }
+  .touch-skill > small { grid-column: 2; z-index: 1; font-size: 9px; line-height: 1.15; letter-spacing: .2px; font-variant-numeric: tabular-nums; }
+  .touch-skill:disabled { cursor: default; border-color: #94a39a; color: #ccd5c6; background: #25383de8; }
+  .skill-recharge { position: absolute; inset: 0 auto 0 0; background: #daba6c26; pointer-events: none; transition: width .1s linear; }
   .touch-shot { width: 82px; height: 82px; right: 0; bottom: 4px; border-radius: 50%; border: 3px solid #17232a; outline: 1px solid #ebc363; color: #1a292e; background: #ecc15b; overflow: hidden; }
   .touch-shot[aria-pressed=true] { color: #14262a; background: #e7b14b; border-color: #fff0bb; }
   .shot-power { position: absolute; bottom: 0; left: 0; right: 0; background: #fff0a9; pointer-events: none; }
   .shot-label { position: relative; font-family: Impact, sans-serif; font-size: 23px; line-height: 1.1; letter-spacing: 1px; }
   .shot-label small { display: block; margin-top: 4px; font: 800 9px 'Segoe UI', sans-serif; letter-spacing: .6px; }
-  .shot-coach { position: absolute; right: -1px; bottom: 95px; width: 112px; margin: 0; padding: 5px 6px; border-radius: 4px; background: #172a30d9; color: #f3d185; text-align: center; font-size: 10px; line-height: 1.35; font-weight: 900; pointer-events: none; }
+  .shot-coach { position: absolute; right: -1px; bottom: 144px; width: 112px; margin: 0; padding: 5px 6px; border-radius: 4px; background: #172a30d9; color: #f3d185; text-align: center; font-size: 10px; line-height: 1.35; font-weight: 900; pointer-events: none; }
   .shot-coach strong { display: block; color: #f3e6c8; font-size: 9px; }
   .shot-coach.is-charging { color: #fff1c4; background: #536e4eed; }
   .touch-shot[aria-pressed=true] .shot-label { font-size: 19px; }

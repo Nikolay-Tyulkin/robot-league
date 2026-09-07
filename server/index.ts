@@ -22,7 +22,7 @@ const connectionLimit = (value: string | undefined, fallback: number) => {
 export function validInput(value: unknown): value is Input {
   if (!value || typeof value !== 'object') return false;
   const i = value as Input;
-  return Number.isSafeInteger(i.seq) && i.seq >= 0 && Number.isFinite(i.x) && Number.isFinite(i.z) && Math.abs(i.x) <= 1 && Math.abs(i.z) <= 1 && ['sprint','charge','shoot','tap'].every(k => typeof i[k as keyof Input] === 'boolean');
+  return Number.isSafeInteger(i.seq) && i.seq >= 0 && Number.isFinite(i.x) && Number.isFinite(i.z) && Math.abs(i.x) <= 1 && Math.abs(i.z) <= 1 && ['sprint','charge','shoot','tap'].every(k => typeof i[k as keyof Input] === 'boolean') && (i.skill === undefined || typeof i.skill === 'boolean');
 }
 export function createGameServer(options: { port?: number; host?: string; reconnectMs?: number; allowedOrigins?: string[]; autoTick?: boolean; staticDirectory?: string } = {}) {
   const rooms = new Map<string, Room>(), clients = new Map<WebSocket, Client>(), queue: WebSocket[] = [];
@@ -113,7 +113,7 @@ export function createGameServer(options: { port?: number; host?: string; reconn
         const p=c.room.seats[c.seat], i=m.input;
         if(i.seq<=p.input.seq) return;
         // Preserve edge-triggered actions until the next simulation tick consumes them.
-        p.input={...i,shoot:i.shoot||p.input.shoot,tap:i.tap||p.input.tap}; p.lastInput=now; return;
+        p.input={seq:i.seq,x:i.x,z:i.z,sprint:i.sprint,charge:i.charge,shoot:i.shoot||p.input.shoot,tap:i.tap||p.input.tap,skill:i.skill===true||p.input.skill===true}; p.lastInput=now; return;
       }
       if(now-c.actionWindow>10000) {c.actions=0;c.actionWindow=now;} if(++c.actions>20) {error(ws,'Too many requests. Please wait a moment.');return;}
       if(m.type==='leave') {leave(ws,false);return;}
@@ -125,6 +125,8 @@ export function createGameServer(options: { port?: number; host?: string; reconn
         if(index<0 || (room.disconnectedAt && now-room.disconnectedAt>reconnectMs)) {error(ws,'The reconnection window has expired.');return;}
         const p=room.seats[index]; if(p.ws && p.ws!==ws) {error(ws,'This player is already connected.');return;}
         p.ws=ws;p.lastSeen=now;p.lastInput=now;p.input=idleInput();Object.assign(c,{room,seat:index});
+        // A resumed browser may begin a fresh input sequence; gameplay timers persist.
+        if(room.state) {room.state.players[index].skillSeq=-1;room.state.players[index].skillHeld=false;}
         if(!room.state && room.seats.every(s=>s.ws?.readyState===WebSocket.OPEN)) room.disconnectedAt=undefined;
         if(room.state?.phase==='paused' && room.seats.every(s=>s.ws?.readyState===WebSocket.OPEN)) {room.state.phase=room.resumePhase??'play';room.disconnectedAt=undefined;}
         broadcastRoom(room);snapshot(room);return;
@@ -191,7 +193,7 @@ export function createGameServer(options: { port?: number; host?: string; reconn
       const wasFinished = room.state.phase === 'finished';
       step(room.state,inputs);
       if (!wasFinished && room.state.phase === 'finished') room.updatedAt = now;
-      room.seats.forEach(p=>{p.input.shoot=false;p.input.tap=false;});
+      room.seats.forEach(p=>{p.input.shoot=false;p.input.tap=false;p.input.skill=false;});
       if(ticks%3===0) snapshot(room);
       if(room.seats.every(s=>!s.ws)&&now-Math.max(...room.seats.map(s=>s.lastSeen))>reconnectMs) removeRoom(room);
       else if (room.state.phase === 'finished' && now - room.updatedAt > 10 * 60 * 1000) removeRoom(room);

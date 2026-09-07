@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { clamp, type MatchState, type Player, type RobotKind } from './sim';
+import { clamp, isVaulting, REACHY_VAULT_DURATION, WATTI_FLASH_DURATION, MICRODUCK_TRIP_DURATION, MICRODUCK_TRIP_RANGE, type MatchState, type Player, type RobotKind } from './sim';
 import { createReachyRodSolver, duckLegPose, duckStep } from './kinematics';
+import { RobotStatusEffect } from './robot-status';
 
 type Joint = { node: string; axis: [number, number, number]; range?: [number, number]; restAngle: number; restQuaternion: [number, number, number, number] };
 type Rig = { id: string; bounds: { size: number[] }; joints: Record<string, Joint> };
@@ -28,6 +29,10 @@ export class Robot {
   joints = new Map<string, { object: THREE.Object3D; joint: Joint; rest: THREE.Quaternion; axis: THREE.Vector3 }>();
   ring!: THREE.Mesh;
   glow?: THREE.PointLight;
+  private ledMaterial?: THREE.MeshStandardMaterial;
+  private flashCone?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  private tripCone?: { root: THREE.Group; fill: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>; outline: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial> };
+  private statusEffect?: RobotStatusEffect;
   private head?: THREE.Object3D;
   private headRest?: { pos: THREE.Vector3; quat: THREE.Quaternion; pivot: THREE.Vector3 };
   private solveRods?: () => boolean;
@@ -85,8 +90,10 @@ export class Robot {
     }
     const rg = new THREE.RingGeometry(.54, .58, 40), rm = new THREE.MeshBasicMaterial({ color: 0x59d2d7, transparent: true, opacity: .8, depthWrite: false, side: THREE.DoubleSide });
     this.ring = new THREE.Mesh(rg, rm); this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = .035; this.root.add(this.ring); this.resources.push(rg, rm);
-    if (this.kind === 'watti') { this.setupWattiLight(); this.setupWattiCables(); }
+    if (this.kind === 'watti') { this.setupWattiLight(); this.setupWattiCables(); this.setupFlashCone(); }
+    if (this.kind === 'microduck') this.setupTripCone();
     if (this.kind === 'reachy') { this.setupHead(); this.setupSupport(); }
+    if (this.role === 'player') { this.statusEffect = new RobotStatusEffect(); this.root.add(this.statusEffect.root); }
     this.resetPose();
   }
   setJoint(name: string, delta: number) {
@@ -191,9 +198,41 @@ export class Robot {
     };
     material.customProgramCacheKey = () => 'watti-diffused-rgb-v1';
     const diffuser = new THREE.Mesh(geometry, material); diffuser.name = 'watti-led-diffuser';
+    this.ledMaterial = material;
     lightRing.add(diffuser); head.add(lightRing); this.resources.push(geometry, material);
     this.glow = new THREE.PointLight(0xffe6bd, .45, .95, 2);
     this.glow.position.z = .006; lightRing.add(this.glow);
+  }
+  private setupFlashCone() {
+    const vertices: number[] = [];
+    for (let i = 0; i < 24; i++) {
+      const a = -Math.PI / 3 + i / 24 * Math.PI * 2 / 3, b = a + Math.PI / 36;
+      vertices.push(0, .05, 0, Math.sin(a) * 2.6, .05, Math.cos(a) * 2.6, Math.sin(b) * 2.6, .05, Math.cos(b) * 2.6);
+    }
+    const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    const material = new THREE.MeshBasicMaterial({ color: 0xffe7a1, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+    this.flashCone = new THREE.Mesh(geometry, material); this.flashCone.name = 'watti-flash-range'; this.flashCone.visible = false;
+    this.root.add(this.flashCone); this.resources.push(geometry, material);
+  }
+  private setupTripCone() {
+    const segments = 24, halfAngle = Math.PI / 3, vertices: number[] = [], edge = [new THREE.Vector3(0, .062, 0)];
+    for (let i = 0; i < segments; i++) {
+      const a = -halfAngle + i / segments * halfAngle * 2, b = -halfAngle + (i + 1) / segments * halfAngle * 2;
+      vertices.push(0, .057, 0, Math.sin(a) * MICRODUCK_TRIP_RANGE, .057, Math.cos(a) * MICRODUCK_TRIP_RANGE, Math.sin(b) * MICRODUCK_TRIP_RANGE, .057, Math.cos(b) * MICRODUCK_TRIP_RANGE);
+    }
+    for (let i = 0; i <= segments; i++) {
+      const angle = -halfAngle + i / segments * halfAngle * 2;
+      edge.push(new THREE.Vector3(Math.sin(angle) * MICRODUCK_TRIP_RANGE, .062, Math.cos(angle) * MICRODUCK_TRIP_RANGE));
+    }
+    edge.push(new THREE.Vector3(0, .062, 0));
+    const fillGeometry = new THREE.BufferGeometry(); fillGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    const fillMaterial = new THREE.MeshBasicMaterial({ color: 0xf2bd50, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+    const fill = new THREE.Mesh(fillGeometry, fillMaterial); fill.name = 'microduck-trip-sector-fill';
+    const edgeGeometry = new THREE.BufferGeometry().setFromPoints(edge);
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xffedba, transparent: true, opacity: 0, depthWrite: false });
+    const outline = new THREE.Line(edgeGeometry, edgeMaterial); outline.name = 'microduck-trip-sector-outline';
+    const root = new THREE.Group(); root.name = 'microduck-trip-sector'; root.visible = false; root.add(fill, outline); this.root.add(root);
+    this.tripCone = { root, fill, outline }; this.resources.push(fillGeometry, fillMaterial, edgeGeometry, edgeMaterial);
   }
   private setupWattiCables() {
     const root = this.model.getObjectByName('ModelRoot'); if (!root) return;
@@ -306,6 +345,11 @@ export class Robot {
       this.solveRods();
     }
     if (this.ring) { this.ring.visible = this.role === 'player'; this.ring.scale.setScalar(1); }
+    if (this.flashCone) { this.flashCone.visible = false; this.flashCone.material.opacity = 0; }
+    if (this.tripCone) { this.tripCone.root.visible = false; this.tripCone.fill.material.opacity = 0; this.tripCone.outline.material.opacity = 0; }
+    if (this.ledMaterial) this.ledMaterial.emissiveIntensity = 1.08;
+    if (this.glow) { this.glow.intensity = .45; this.glow.distance = .95; }
+    this.statusEffect?.update(null, 0, 0);
     this.renderedRole = this.role; this.lastTick = undefined;
     this.updateWattiCables();
   }
@@ -326,7 +370,7 @@ export class Robot {
     }
     this.model.position.y = -bottom;
   }
-  private reachyPlayer(p: Player, s: MatchState, time: number, activity: number, celebrating: boolean) {
+  private reachyPlayer(p: Player, s: MatchState, time: number, activity: number, celebrating: boolean, stumble: number, dazzle: number, headShake: number) {
     const playing = s.phase === 'play', moving = playing ? activity : 0;
     const { windup, strike } = playing ? reachyActionPose(p) : { windup: 0, strike: 0 };
     const dx = s.ball.x - p.x, dz = s.ball.z - p.z;
@@ -338,8 +382,8 @@ export class Robot {
     this.setJoint('yaw_body', bodyYaw);
 
     // This robot has a fixed base: it glides, pivots and shifts its weight on the ground.
-    const lean = moving * .02 - windup * .035 + strike * .075 + dance * .025;
-    const bank = -lateral * .04 + (celebrating ? Math.sin(time * 8) * .035 : glide * .008);
+    const lean = moving * .02 - windup * .035 + strike * .075 + dance * .025 + stumble * .12;
+    const bank = -lateral * .04 + (celebrating ? Math.sin(time * 8) * .035 : glide * .008) + stumble * Math.sin((.55 - p.staggered) * 17) * .1;
     this.poseRotation.setFromEuler(this.poseEuler.set(lean, 0, bank, 'XYZ'));
     this.model.quaternion.copy(this.modelRest).premultiply(this.poseRotation);
     this.model.position.set(0, 0, -windup * .035 + strike * .085);
@@ -348,8 +392,8 @@ export class Robot {
     if (this.head && this.headRest) {
       // Work in the source-aligned platform frame: X forward, Y left, Z up.
       const roll = -lateral * .025 + (celebrating ? Math.sin(time * 8) * .055 : 0);
-      const pitch = moving * .02 + Math.sin(time * 1.7) * .008 - windup * .11 + strike * .18 + dance * .09;
-      const yaw = bodyYaw + tracking * .16 * (1 - strike * .8) + dance * .1;
+      const pitch = moving * .02 + Math.sin(time * 1.7) * .008 - windup * .11 + strike * .18 + dance * .09 + stumble * .065 - dazzle * .1;
+      const yaw = bodyYaw + tracking * .16 * (1 - strike * .8) * (1 - dazzle) + dance * .1 + headShake * .12;
       this.poseRotation.setFromEuler(this.poseEuler.set(roll, pitch, yaw, 'ZYX'));
       this.head.position.copy(this.headRest.pos).sub(this.headRest.pivot).applyQuaternion(this.poseRotation).add(this.headRest.pivot);
       this.head.position.x += -windup * .006 + strike * .014;
@@ -358,8 +402,8 @@ export class Robot {
       this.solveRods?.();
     }
     const flutter = Math.sin(time * (celebrating ? 11 : 3.4)) * (celebrating ? .65 : .06 + moving * .09);
-    this.setJoint('left_antenna', flutter - windup * .42 + strike * .48);
-    this.setJoint('right_antenna', -flutter + windup * .42 - strike * .48 + (celebrating ? Math.sin(time * 9) * .15 : .035));
+    this.setJoint('left_antenna', flutter - windup * .42 + strike * .48 - dazzle * .6 - stumble * .35);
+    this.setJoint('right_antenna', -flutter + windup * .42 - strike * .48 + dazzle * .6 + stumble * .35 + (celebrating ? Math.sin(time * 9) * .15 : .035));
   }
   animate(p: Player, s: MatchState, time: number) {
     this.prepareFrame('player', s.tick);
@@ -369,9 +413,21 @@ export class Robot {
     const kick = p.action === 'none' ? 0 : Math.sin(clamp(p.actionTime / .46, 0, 1) * Math.PI);
     const strike = p.action === 'kick' ? Math.sin(clamp((p.actionTime - .04) / .3, 0, 1) * Math.PI) : 0;
     const celebrating = (s.phase === 'goal' || s.phase === 'finished') && (s.lastScorer === p.id || s.winner === p.id);
+    // Reactions use authoritative remaining time, including when play is paused.
+    const effectsActive = s.phase === 'play' || s.phase === 'paused';
+    const stumble = effectsActive && p.staggered > 0 ? Math.sin(clamp(1 - p.staggered / .55, 0, 1) * Math.PI) : 0;
+    const blindTime = 1.2 - p.blinded;
+    const dazzle = effectsActive && p.blinded > 0 ? THREE.MathUtils.smoothstep(blindTime, 0, .06) * (1 - THREE.MathUtils.smoothstep(blindTime, .95, 1.2)) : 0;
+    const headShake = Math.sin(blindTime * 13) * dazzle;
     (this.ring.material as THREE.MeshBasicMaterial).color.set(p.id === 0 ? 0x54d7d8 : 0xffa351);
     this.ring.visible = s.phase !== 'finished';
+    this.ring.scale.setScalar(isVaulting(p) ? .82 : 1);
     if (this.kind === 'watti') {
+      // A single soft light pulse keeps the skill readable without a strobe.
+      const flash = p.skillTime > 0 ? Math.sin(clamp(1 - p.skillTime / WATTI_FLASH_DURATION, 0, 1) * Math.PI) : 0;
+      if (this.ledMaterial) this.ledMaterial.emissiveIntensity = 1.08 + flash * 1.8;
+      if (this.glow) { this.glow.intensity = .45 + flash * 3; this.glow.distance = .95 + flash * 2; }
+      if (this.flashCone) { this.flashCone.visible = flash > 0; this.flashCone.material.opacity = flash * .26; }
       const hop = Math.max(0, Math.sin(phase)), squash = Math.cos(phase);
       const idle = p.action === 'none' && p.charge === 0 && !celebrating && s.phase !== 'paused' ? 1 - THREE.MathUtils.smoothstep(speed, 0, .65) : 0;
       const breath = Math.sin(time * 1.2 + p.id * 1.9) * idle, sway = Math.sin(time * .73 + p.id * .9) * idle;
@@ -381,44 +437,58 @@ export class Robot {
       // then land with zero vertical velocity before the running gait resumes.
       const shotWeight = hitting ? THREE.MathUtils.smoothstep(p.actionTime, 0, .07) * (1 - THREE.MathUtils.smoothstep(p.actionTime, .42, .54)) : 0;
       const hitHop = hitting ? .06 * (.65 + clamp(p.actionPower, 0, 1) * .35) * THREE.MathUtils.smoothstep(p.actionTime, .07, .19) * (1 - THREE.MathUtils.smoothstep(p.actionTime, .19, .42)) : 0;
-      this.model.position.y = hop * .19 * activity * (1 - shotWeight) + hitHop + (celebrating ? Math.abs(Math.sin(time * 7)) * .25 : 0);
+      this.model.position.y = hop * .19 * activity * (1 - shotWeight) * (1 - stumble) + hitHop + (celebrating ? Math.abs(Math.sin(time * 7)) * .25 : 0);
       // Fold the elbow the other way and balance shoulder/neck motion so the
       // combined head pitch stays +.16 rad toward the ball at full contact.
       // Watti waits in the lower, folded posture of the physical arm instead
       // of standing fully extended between plays.
       const gait = squash * activity * (1 - shotWeight);
-      this.setJoint('shoulder_pitch', WATTI_REST.shoulder + gait * .18 - p.charge * .23 + hitStroke * .5 + breath * .025);
-      this.setJoint('elbow_pitch', WATTI_REST.elbow - gait * .28 + p.charge * .26 + hitStroke * .35 - breath * .04);
-      this.setJoint('neck_pitch', WATTI_REST.neck + gait * .1 - p.charge * .03 - hitStroke * .69 + breath * .015);
-      this.setJoint('base_yaw', Math.sin(phase * .5) * .055 * activity + (p.action === 'tap' ? kick * .8 : 0));
+      this.setJoint('shoulder_pitch', WATTI_REST.shoulder + gait * .18 - p.charge * .23 + hitStroke * .5 + breath * .025 - stumble * .22);
+      this.setJoint('elbow_pitch', WATTI_REST.elbow - gait * .28 + p.charge * .26 + hitStroke * .35 - breath * .04 + stumble * .34);
+      this.setJoint('neck_pitch', WATTI_REST.neck + gait * .1 - p.charge * .03 - hitStroke * .69 + breath * .015 - stumble * .12 - dazzle * .22);
+      this.setJoint('base_yaw', Math.sin(phase * .5) * .055 * activity + (p.action === 'tap' ? kick * .8 : 0) + stumble * Math.sin((.55 - p.staggered) * 17) * .13);
       const dx = s.ball.x - p.x, dz = s.ball.z - p.z;
-      this.setJoint('head_yaw', clamp(Math.atan2(Math.sin(Math.atan2(dx, dz) - p.yaw), Math.cos(Math.atan2(dx, dz) - p.yaw)), -.4, .4) * .55 * activity + (celebrating ? Math.sin(time * 9) * .35 : 0) + sway * .018);
+      this.setJoint('head_yaw', clamp(Math.atan2(Math.sin(Math.atan2(dx, dz) - p.yaw), Math.cos(Math.atan2(dx, dz) - p.yaw)), -.4, .4) * .55 * activity * (1 - dazzle) + (celebrating ? Math.sin(time * 9) * .35 : 0) + sway * .018 + headShake * .3);
       this.updateWattiCables();
     } else if (this.kind === 'reachy') {
-      this.reachyPlayer(p, s, time, activity, celebrating);
+      this.reachyPlayer(p, s, time, activity, celebrating, stumble, dazzle, headShake);
+      if (isVaulting(p)) {
+        const arc = Math.sin(clamp(1 - p.skillTime / REACHY_VAULT_DURATION, 0, 1) * Math.PI);
+        this.model.position.y += arc * 1.65;
+        this.setJoint('left_antenna', -.7 * arc); this.setJoint('right_antenna', .7 * arc);
+      }
     } else {
+      const trip = p.skillTime > 0 ? Math.sin(clamp(1 - p.skillTime / MICRODUCK_TRIP_DURATION, 0, 1) * Math.PI) : 0;
+      if (this.tripCone) {
+        this.tripCone.root.visible = trip > 0;
+        this.tripCone.fill.material.opacity = trip * .32;
+        this.tripCone.outline.material.opacity = Math.min(1, trip * 1.15);
+      }
       for (const [side, offset] of [['left', 0], ['right', .5]] as const) {
         const stride = duckStep(p.distance, this.model.scale.x, offset);
-        const legKick = side === 'right' ? (p.action === 'tap' ? kick * .55 : strike) : 0;
+        const legKick = side === 'right' ? Math.max(p.action === 'tap' ? kick * .55 : strike, trip) : 0;
         const dx = stride.dx * activity * (1 - legKick) + .045 * legKick;
-        const lift = stride.lift * activity * (1 - legKick) + .018 * legKick;
+        const lift = stride.lift * activity * (1 - legKick) + .018 * legKick + .005 * stumble;
         const pose = duckLegPose(side, dx, lift);
         this.setJoint(`${side}_hip_pitch`, pose.hip);
         this.setJoint(`${side}_knee`, pose.knee);
         this.setJoint(`${side}_ankle`, pose.ankle);
         this.setJoint(`${side}_hip_roll`, side === 'left' ? .0873 : -.0873);
-        this.setJoint(`${side}_hip_yaw`, 0);
+        this.setJoint(`${side}_hip_yaw`, side === 'right' ? -.32 * trip : 0);
       }
-      this.setJoint('neck_pitch', .08 * activity - kick * .13);
-      this.setJoint('head_pitch', -.08 * activity + Math.sin(time * 1.7) * .04);
-      this.setJoint('head_roll', Math.sin(phase) * .045 * activity);
-      this.setJoint('head_yaw', celebrating ? Math.sin(time * 6) * .5 : Math.sin(time * .8) * .04);
-      this.model.position.y = -.001340127741 * this.model.scale.x + (celebrating ? Math.abs(Math.sin(time * 7)) * .14 : 0);
+      this.setJoint('neck_pitch', .08 * activity - kick * .13 + stumble * .18);
+      this.setJoint('head_pitch', -.08 * activity + Math.sin(time * 1.7) * .04 - stumble * .12 - dazzle * .26);
+      this.setJoint('head_roll', Math.sin(phase) * .045 * activity + stumble * Math.sin((.55 - p.staggered) * 17) * .18 + headShake * .07);
+      this.setJoint('head_yaw', (celebrating ? Math.sin(time * 6) * .5 : Math.sin(time * .8) * .04) + headShake * .32);
+      this.model.position.y = (-.001340127741 - .005 * stumble) * this.model.scale.x + (celebrating ? Math.abs(Math.sin(time * 7)) * .14 : 0);
     }
+    const status = effectsActive ? p.staggered > 0 ? 'slowed' : p.blinded > 0 ? 'dazzled' : null : null;
+    this.statusEffect?.update(status, status === 'slowed' ? p.staggered : p.blinded, (this.kind === 'watti' ? 1.35 : 1.85) + this.model.position.y);
   }
   referee(s: MatchState, time: number) {
     this.prepareFrame('referee', s.tick);
     this.root.position.set(0, .22, -5.65); this.root.rotation.set(0, 0, 0); this.ring.visible = false;
+    this.statusEffect?.update(null, 0, 0);
     this.model.position.set(0, 0, 0); this.model.quaternion.copy(this.modelRest);
     const yaw = clamp(Math.atan2(s.ball.x, s.ball.z + 5.65), -.85, .85);
     this.setJoint('yaw_body', -yaw * .25);
@@ -431,10 +501,12 @@ export class Robot {
       this.solveRods?.();
     }
   }
+  fitStatus(camera: THREE.PerspectiveCamera, viewportHeight: number) { this.statusEffect?.fit(camera, viewportHeight); }
   dispose() {
     const resources = new Set(this.resources);
     this.model?.traverse(o => { if (o instanceof THREE.Mesh && o.name !== 'ink-outline') resources.add(o.geometry); });
     resources.forEach(resource => resource.dispose()); this.glow?.dispose();
+    this.statusEffect?.dispose();
   }
 }
 

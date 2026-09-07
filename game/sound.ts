@@ -46,6 +46,7 @@ export class Sound {
     o.connect(g); g.connect(c.destination); o.start(start); o.stop(start + duration + .02);
   }
   play(e: GameEvent) {
+    if (e.type === 'skill') { this.note(280, .23, .045, 'sine', 0, 780); this.note(140, .16, .025, 'triangle', .06, 70); }
     if (e.type === 'kick') { this.note(155, .13, .14, 'triangle', 0, 45); this.note(700, .035, .025, 'square', 0, 150); }
     if (e.type === 'start') { this.note(1850, .17, .065, 'sine'); this.note(2100, .21, .04, 'sine', .02); }
     if (e.type === 'goal') [392, 494, 587, 784].forEach((f, i) => this.note(f, .22, .07, 'square', i * .11));

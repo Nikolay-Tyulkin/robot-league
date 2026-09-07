@@ -1,13 +1,22 @@
 'use client';
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
-import { ArrowUp, Footprints, Zap } from 'lucide-react';
+import { ArrowUp, Footprints, Sun, Wind, Zap } from 'lucide-react';
 import { stickVector, type TouchInput, type TouchAction } from './touch-input';
+import { ROBOT_NAMES, SKILLS, SKILL_COOLDOWN, type RobotKind } from './sim';
 
-export function TouchControls({ input, charge }: { input: TouchInput; charge: number }) {
+export function TouchControls({ input, charge, kind, skillCooldown, skillBlocked }: { input: TouchInput; charge: number; kind: RobotKind; skillCooldown: number; skillBlocked: boolean }) {
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const [held, setHeld] = useState({ charge: false, sprint: false, tap: false });
   const keys = useRef(new Set<string>());
+  const [keyboardActions] = useState(() => new Set<TouchAction>());
   const sync = () => setHeld({ charge: input.held('charge'), sprint: input.held('sprint'), tap: input.held('tap') });
+  const actionKey = (action: TouchAction) => ({ charge: -10, sprint: -11, tap: -12, skill: -13 })[action];
+  const skill = SKILLS[kind], SkillIcon = kind === 'watti' ? Sun : kind === 'reachy' ? Wind : Footprints;
+  const skillStatus = skillCooldown > 0 ? `${Math.ceil(skillCooldown)}s` : skillBlocked ? 'WAIT' : 'READY';
+  useEffect(() => {
+    // A disabled button may stop receiving pointerup; release only its owners.
+    if (skillBlocked || skillCooldown > 0) input.cancelAction('skill');
+  }, [input, skillBlocked, skillCooldown]);
   function updateKeys() {
     if (!keys.current.size) { input.release(-1); setKnob({ x: 0, y: 0 }); return; }
     if (input.moveOwner === null) input.beginMove(-1);
@@ -17,7 +26,7 @@ export function TouchControls({ input, charge }: { input: TouchInput; charge: nu
     input.move(-1, x, z); setKnob({ x: x * 28, y: z * 28 });
   }
   useEffect(() => {
-    const reset = () => { input.clear(); keys.current.clear(); setKnob({ x: 0, y: 0 }); setHeld({ charge: false, sprint: false, tap: false }); };
+    const reset = () => { input.clear(); keys.current.clear(); keyboardActions.clear(); setKnob({ x: 0, y: 0 }); setHeld({ charge: false, sprint: false, tap: false }); };
     const visibility = () => { if (document.hidden) reset(); };
     window.addEventListener('blur', reset); window.addEventListener('pagehide', reset);
     window.addEventListener('orientationchange', reset); document.addEventListener('visibilitychange', visibility);
@@ -25,7 +34,7 @@ export function TouchControls({ input, charge }: { input: TouchInput; charge: nu
       input.clear(); window.removeEventListener('blur', reset); window.removeEventListener('pagehide', reset);
       window.removeEventListener('orientationchange', reset); document.removeEventListener('visibilitychange', visibility);
     };
-  }, [input]);
+  }, [input, keyboardActions]);
   function move(e: PointerEvent<HTMLButtonElement>) {
     if (input.moveOwner !== e.pointerId) return;
     const rect = e.currentTarget.getBoundingClientRect(), radius = rect.width * .32;
@@ -40,6 +49,7 @@ export function TouchControls({ input, charge }: { input: TouchInput; charge: nu
   const actionProps = (action: TouchAction) => ({
     onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
       if (e.button !== 0) return; e.preventDefault();
+      keyboardActions.delete(action);
       if (input.beginAction(e.pointerId, action)) { e.currentTarget.setPointerCapture(e.pointerId); sync(); }
     },
     onPointerUp: (e: PointerEvent<HTMLButtonElement>) => release(e, false),
@@ -48,14 +58,14 @@ export function TouchControls({ input, charge }: { input: TouchInput; charge: nu
     onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => {
       if (e.key !== ' ' && e.key !== 'Enter') return;
       e.preventDefault(); if (e.repeat) return;
-      input.beginAction(action === 'charge' ? -10 : action === 'sprint' ? -11 : -12, action); sync();
+      keyboardActions.add(action); input.beginAction(actionKey(action), action); sync();
     },
     onKeyUp: (e: KeyboardEvent<HTMLButtonElement>) => {
       if (e.key !== ' ' && e.key !== 'Enter') return;
-      e.preventDefault(); input.release(action === 'charge' ? -10 : action === 'sprint' ? -11 : -12); sync();
+      e.preventDefault(); input.release(actionKey(action)); sync();
     },
-    onBlur: () => { input.release(action === 'charge' ? -10 : action === 'sprint' ? -11 : -12, true); sync(); },
-    onClick: (e: React.MouseEvent<HTMLButtonElement>) => { if (e.detail === 0) { input.pulse(action); sync(); } },
+    onBlur: () => { input.release(actionKey(action), true); keyboardActions.delete(action); sync(); },
+    onClick: (e: React.MouseEvent<HTMLButtonElement>) => { if (e.detail === 0 && !keyboardActions.delete(action)) { input.pulse(action); sync(); } },
   });
   return <div className="touch-controls" aria-label="Touch controls">
     <button type="button" className="touch-stick" aria-label="Movement joystick" aria-describedby="stick-hint"
@@ -75,6 +85,9 @@ export function TouchControls({ input, charge }: { input: TouchInput; charge: nu
     <div className="touch-actions" onContextMenu={e => e.preventDefault()}>
       <button type="button" className="touch-action touch-sprint" aria-label="Sprint — hold" aria-pressed={held.sprint} {...actionProps('sprint')}><Zap size={20} /><span>RUN</span></button>
       <button type="button" className="touch-action touch-tap" aria-label="Short hit" aria-pressed={held.tap} {...actionProps('tap')}><Footprints size={20} /><span>TAP</span></button>
+      <button type="button" className="touch-action touch-skill" aria-label={`${ROBOT_NAMES[kind]} ${skill.name} — ${skillStatus}; ${SKILL_COOLDOWN} second cooldown`} title={skill.description} disabled={skillBlocked || skillCooldown > 0} {...actionProps('skill')}>
+        <span className="skill-recharge" style={{ width: `${Math.max(0, 1 - skillCooldown / SKILL_COOLDOWN) * 100}%` }} aria-hidden="true" /><SkillIcon size={18} /><span>{skill.name.toUpperCase()}</span><small>{skillStatus}</small>
+      </button>
       <p className={`shot-coach ${held.charge ? 'is-charging' : ''}`} id="shot-hint">{held.charge ? <>RELEASE TO SHOOT <strong>{Math.round(charge * 100)}% POWER</strong></> : <>HOLD FOR POWER<strong>RELEASE TO SHOOT</strong></>}</p>
       <button type="button" className="touch-action touch-shot" aria-label="Shoot — hold for power, release to kick" aria-describedby="shot-hint" aria-pressed={held.charge} {...actionProps('charge')}>
         <span className="shot-power" style={{ height: `${Math.round(charge * 100)}%` }} aria-hidden="true" />

@@ -42,7 +42,13 @@ Near a corner, AI approaches from the reachable inner diagonal, slows to align a
 
 Shared board contacts also apply after robot/post separation and reflect only outward velocities. When a board blocks ball separation, the robot absorbs the remaining displacement and part of the impulse. Successful outward bank shots within 36 cm of a solid board grant that striker a 0.35-second ball-contact clearance, extended only until an existing overlap clears. Opponent collisions remain active. This small arcade allowance lets manual shots escape corners; ordinary open-field shots and missed strikes receive no clearance, and stationary corner balls never escape automatically.
 
-An `Input` contains `seq`, `x`, `z`, `sprint`, `charge`, `shoot`, and `tap`. Movement and held actions are state; shoot and tap are edges. A tap contacts at 0.09 seconds and a kick at 0.19 seconds after action start. Rendering must follow those times.
+An `Input` contains `seq`, `x`, `z`, `sprint`, `charge`, `shoot`, `tap`, and optional `skill`. Movement and held actions are state; shoot, tap, and skill are edges. E activates a skill and Q performs a short hit. A tap contacts at 0.09 seconds and a kick at 0.19 seconds after action start. Rendering must follow those times.
+
+Robot skills are part of the shared simulation, including targeting, the 10-second cooldown, and effect timers. Watti's Flash briefly dazzles a nearby rival in front; Microduck's close-range Trip slows and interrupts a rival; Reachy's Vault crosses opponents but cannot contact or shoot the ball in the air. `Player` snapshots carry `skillCooldown`, `skillTime`, `blinded`, and `staggered`; the interface only presents those values. Use the exported `SKILLS` descriptions rather than maintaining a separate UI rules list. Skill input is consumed once and cleared with other controls; holding a button must not automatically reactivate it.
+
+`game/skill-effects.ts` derives Flash presentation for the local viewer. Only the affected player loses sight of the ball for 0.9 seconds; the arena blur recovers during the remaining 0.3 seconds. The ball continues simulating normally and the caster sees confirmed hits. This is a visibility effect, not a change to shared ball state.
+
+`Robot.animate` also reacts to `staggered` and `blinded` with model-specific joint poses. Each playable robot owns a `RobotStatusEffect` from `game/robot-status.ts`: a billboard label and small animated glyphs visible to both players. Their phase and lifetime come from the same remaining timers; they reset with the robot and dispose their textures/materials on teardown. The referee has no debuff markers.
 
 `MatchState.events` holds a bounded recent event history with increasing IDs. The renderer consumes new events once for sound and particles. Starting another match resets simulation counters; `GameEngine.snapshot` recognizes tick rollback and resets its corresponding presentation state.
 
@@ -64,7 +70,7 @@ Create/join/queue requests carry an initial kind. In the room, `select-robot` ch
 
 Each open page maintains a separate presence socket on `/ws` and registers with `presence`. The server broadcasts `{type: 'presence', online, queued}` as visitors connect/disconnect or the quick-match queue changes. `online` counts registered page connections (multiple tabs count separately), not unique accounts; the additional match socket does not register. `queued` counts waiting players, including the viewer when searching, and drops immediately when a pair enters a room. On connection loss, the UI marks counts unavailable and retries. These statistics are scoped to one server process.
 
-The server simulates at 60 Hz using monotonic elapsed time and sends regular snapshots at 20 Hz. The client sends controls at approximately 30 Hz, immediately sending shot/tap edges. The server preserves these edges until a simulation tick consumes them and neutralizes stale movement after 350 ms.
+The server simulates at 60 Hz using monotonic elapsed time and sends regular snapshots at 20 Hz. The client sends controls at approximately 30 Hz, immediately sending shot/tap/skill edges. The server preserves these edges until a simulation tick consumes them and neutralizes stale movement after 350 ms.
 
 Rooms currently hold exactly two seats. Private rooms and the public queue are separate. A disconnect preserves lobby seats/choices, clears readiness and allows a 15-second token-based return. In an active match it pauses play for the same return window. Explicitly leaving a lobby closes it immediately. Both connected players must request a rematch. State lives in one server process with no database or cross-process room coordination.
 

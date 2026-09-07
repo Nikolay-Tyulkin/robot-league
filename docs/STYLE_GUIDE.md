@@ -27,6 +27,7 @@ Retain the recognizable CAD shape and assembly. Color and wear can change presen
 - Headlines use condensed Impact/Arial Narrow fallbacks; body and control copy use Segoe UI/Arial. Keep small text readable and avoid long uppercase paragraphs.
 - Panels use firm borders, small corner radii, offset ink shadows, and occasional restrained skew/rotation. Main actions are ochre; secondary controls stay quieter.
 - Home shows Single Player, Multiplayer and Meet the Robots, with Watti and Microduck on the right and the Reachy referee behind. Put robot/opponent settings inside Single Player; put online choices inside the room, owned by each player. Preserve score/time, energy, charge, connection status, and a direct path back to the menu.
+- Skills use E, with Q reserved for a short hit. Show the selected robot's skill and 10-second cooldown before play, then its ready/recharge state on the HUD and named touch button. Watti's Flash obscures the ball for 0.9 seconds and blurs the affected player's arena, restoring visibility over the final 0.3 seconds. Keep the HUD and controls clear. Confirm successful hits to the caster. No strobing or full-screen blackout.
 - Credits use verified source links. Optional author/profile fields remain absent until supplied; do not derive identities from local paths or usernames.
 - Dialogs have a reachable close control, visible focus, and scrolling content that stays inside the viewport.
 
@@ -37,6 +38,8 @@ The pitch is painted concrete with low boards, cyan/orange goals, workshop fixtu
 The renderer currently uses sRGB output, ACES filmic tone mapping, exposure 1.55, warm key light, cool rim light, hemisphere fill, and soft PCF shadows. Judge material changes in this lighting, not only in an asset viewer.
 
 Watti folds its elbow backward for a kick, with compensating shoulder and neck motion keeping the face toward the ball. A small 3.9–6 cm hop peaks at the 0.19-second contact and lands softly by 0.42 seconds. Keep these motions tied to action time and power, not a separate animation clock.
+
+Make debuffs visible on the affected robot to both players. A Trip draws its 1.5 m front sector on the pitch while it swings, then causes a short crouch/stumble with an amber SLOWED badge and downward chevrons above its head. Flash makes the head recoil and shake, with a cream/cyan DAZZLED badge and orbiting stars. Drive reactions and markers from authoritative effect timers so they freeze on pause and disappear when the effect ends. Keep markers above the silhouette, preserve joints and planted supports, and avoid altering movement or cooldowns for a visual effect.
 
 Background music uses a quiet 0.045 Web Audio gain below the match sound effects. Start it only after user interaction, cycle the two tracks, honor the shared mute control, and pause it when the page is hidden. Do not add audio credits to the interface.
 
@@ -49,7 +52,7 @@ Desktop gameplay has an overview camera and an overhead option. Both show the co
 Phone gameplay is landscape. Compact layout activates for coarse pointers or landscape height at most 600 px. Preserve:
 
 - Safe-area insets and `100dvh` sizing.
-- A left movement stick and independently held right-side RUN, TAP, and SHOOT controls.
+- A left movement stick and independently owned right-side RUN, TAP, skill, and SHOOT controls. The skill is a single press, with a named 44 px target above SHOOT; holding it must not automatically reactivate it after recharge.
 - At least 44 px primary touch targets, including dialog close and utility controls.
 - Fit the pitch and goals beneath the 52 px top HUD with small edge margins. Use most of the remaining view for play; the referee and workshop may be cropped. Keep thumb controls in translucent lower-corner overlays rather than reserving a large empty band.
 - Portrait rotation guidance, cleared controls, and paused solo play. Online play remains server-owned while local controls are blocked.

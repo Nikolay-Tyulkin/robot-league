@@ -72,6 +72,9 @@ Desktop.ini
 /playwright-report/
 /test-results/
 
+# optional local video footage for editing
+/screenshots/videos/
+
 # private or machine-specific Compose overrides
 /compose.override.yaml
 /compose.override.yml

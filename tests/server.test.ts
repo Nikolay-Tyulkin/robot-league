@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WebSocket } from 'ws';
-import { createGameServer } from '../server/index.ts';
+import { createGameServer, validInput } from '../server/index.ts';
 import { idleInput, finish, ROBOT_KINDS } from '../game/sim.ts';
 import type { ServerMessage } from '../game/network.ts';
 
@@ -56,6 +56,74 @@ void test('private match admits two players and server owns inputs, kick edges a
   b.send({type:'input',player:0,input:{...idleInput(),seq:1,x:-1},score:[99,0]}); await b.barrier(); f.app.tick();
   assert.ok(room.state!.players[0].x > before); assert.deepEqual(room.state!.score,[0,0]);
   room.seats[0].lastInput = Date.now() - 400; f.app.tick(); assert.equal(room.seats[0].input.x,0);
+});
+
+void test('input validation accepts legacy controls and boolean skill edges but rejects malformed skills', () => {
+  const { skill: _skill, ...legacy } = idleInput();
+  assert.equal(validInput(legacy), true);
+  assert.equal(validInput({ ...legacy, skill: true }), true);
+  assert.equal(validInput({ ...legacy, skill: false }), true);
+  for (const skill of [null, 0, 1, 'true', [], {}, { active: true }]) assert.equal(validInput({ ...legacy, skill }), false);
+});
+
+void test('server retains one skill edge until a tick, rejects replay and forged effects, and broadcasts both players', async t => {
+  const f = await fixture(); t.after(() => f.app.close()); const {a,b,room} = await privateMatch(f);
+  const state = room.state!; state.phase = 'play';
+  Object.assign(state.players[0], { x: 0, z: 0 }); Object.assign(state.players[1], { x: 1.1, z: 0 });
+  Object.assign(state.ball, { x: -3, z: 3 });
+  a.send({type:'input',input:{...idleInput(),seq:1,skill:'true'}});
+  await a.barrier(); assert.equal(room.seats[0].input.seq, 0);
+  a.send({type:'input',player:1,skillCooldown:0,blinded:100,input:{...idleInput(),seq:2,skill:true,skillCooldown:0,blinded:100,skillTime:100}});
+  a.send({type:'input',input:{...idleInput(),seq:3}}); await a.barrier();
+  assert.equal(room.seats[0].input.skill, true);
+  assert.equal(Object.hasOwn(room.seats[0].input, 'skillCooldown'), false);
+  f.app.tick();
+  assert.equal(room.seats[0].input.skill, false);
+  assert.equal(state.players[0].skillCooldown, 10); assert.equal(state.players[0].blinded, 0);
+  assert.equal(state.players[1].blinded, 1.2); assert.equal(state.players[1].skillCooldown, 0);
+  assert.equal(state.events.filter(e => e.type === 'skill').length, 1);
+  f.app.tick(); f.app.tick();
+  const [host,guest] = await Promise.all([a.wait('state',m => m.state.tick === 3),b.wait('state',m => m.state.tick === 3)]);
+  assert.deepEqual(host.state.players, guest.state.players);
+  assert.ok(host.state.players[0].skillCooldown > 9.9); assert.ok(guest.state.players[1].blinded > 1.1);
+  a.send({type:'input',input:{...idleInput(),seq:4,skill:true,skillCooldown:0}}); await a.barrier(); f.app.tick();
+  assert.equal(state.events.filter(e => e.type === 'skill').length, 1, 'a new input cannot bypass the authoritative cooldown');
+  for (let i = 0; i < 620; i++) f.app.tick();
+  assert.equal(state.players[0].skillCooldown, 0); assert.equal(state.events.filter(e => e.type === 'skill').length, 1);
+  a.send({type:'input',input:{...idleInput(),seq:4,skill:true}}); await a.barrier(); f.app.tick();
+  assert.equal(state.events.filter(e => e.type === 'skill').length, 1, 'a replayed sequence cannot cast again');
+  a.send({type:'input',input:{...idleInput(),seq:5,skill:true}}); await a.barrier(); f.app.tick();
+  assert.equal(state.events.filter(e => e.type === 'skill').length, 2);
+});
+
+void test('disconnect preserves skill timers and reconnect does not refresh a spent ability', async t => {
+  const f = await fixture(); t.after(() => f.app.close()); const {a,b,room,token,code} = await privateMatch(f);
+  room.state!.phase = 'play';
+  b.send({type:'input',input:{...idleInput(),seq:81,skill:true}}); await b.barrier(); f.app.tick();
+  const cooldown = room.state!.players[1].skillCooldown;
+  b.ws.terminate(); await a.wait('state',m => m.state.phase === 'paused');
+  const paused = structuredClone(room.state); for (let i = 0; i < 60; i++) f.app.tick();
+  assert.deepEqual(room.state, paused);
+  const returned = await f.connect(); returned.send({type:'resume',code,token});
+  await returned.wait('state',m => m.state.phase === 'play');
+  assert.equal(room.state!.players[1].skillCooldown, cooldown);
+  returned.send({type:'input',input:{...idleInput(),seq:1,skill:true}}); await returned.barrier(); f.app.tick();
+  assert.equal(room.state!.events.filter(e => e.type === 'skill').length, 1);
+  for (let i = 0; i < 620; i++) f.app.tick();
+  returned.send({type:'input',input:{...idleInput(),seq:2,skill:true}}); await returned.barrier(); f.app.tick();
+  assert.equal(room.state!.events.filter(e => e.type === 'skill').length, 2, 'a fresh browser sequence works after the retained cooldown');
+});
+
+void test('a server rematch resets both skill timers, effects and consumed input edges', async t => {
+  const f = await fixture(); t.after(() => f.app.close()); const {a,b,room} = await privateMatch(f);
+  room.state!.phase = 'play';
+  a.send({type:'input',input:{...idleInput(),seq:1,skill:true}}); await a.barrier(); f.app.tick();
+  Object.assign(room.state!.players[1], { blinded: 1, staggered: .5, skillCooldown: 4, skillTime: .2 });
+  finish(room.state!,0); a.send({type:'rematch'}); b.send({type:'rematch'});
+  const next = await b.wait('state',m => m.state.tick === 0);
+  assert.equal(next.state.phase, 'countdown');
+  for (const p of next.state.players) assert.deepEqual([p.skillCooldown,p.skillTime,p.blinded,p.staggered,p.skillHeld,p.skillSeq], [0,0,0,0,false,-1]);
+  assert.equal(room.seats[0].input.skill, false); assert.equal(room.seats[1].input.skill, false);
 });
 
 void test('presence reports queue entry, matching, cancellation and disconnection', async t => {

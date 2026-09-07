@@ -1,16 +1,17 @@
 'use client';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Copy, Flag, Fullscreen, Gamepad2, HelpCircle, LoaderCircle, Radio, Users, Volume2, VolumeX, X, Zap, Camera, Pause, RotateCw, Smartphone } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Copy, Flag, Footprints, Fullscreen, Gamepad2, HelpCircle, LoaderCircle, Radio, Sun, Users, Volume2, VolumeX, Wind, X, Zap, Camera, Pause, RotateCw, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import type { GameEngine, EngineInfo } from './engine';
-import { ROBOT_KINDS, ROBOT_NAMES, isRobotKind, type RobotKind, type SoloOpponent } from './sim';
+import { ROBOT_KINDS, ROBOT_NAMES, SKILLS, SKILL_COOLDOWN, isRobotKind, type RobotKind, type SoloOpponent } from './sim';
 import { GameSocket, subscribeArenaPresence, type RoomInfo, type ServerMessage } from './network';
 import { TouchControls } from './TouchControls';
 import { TouchInput, subscribeTouchLayout, touchLayoutSnapshot, desktopSnapshot, subscribePortrait, portraitSnapshot } from './touch-input';
 import { RobotCredits } from './RobotCredits';
+import { flashPresentation } from './skill-effects';
 
 export function Football() {
   const host = useRef<HTMLDivElement>(null), engine = useRef<GameEngine | null>(null), socket = useRef<GameSocket | null>(null);
@@ -89,11 +90,21 @@ export function Football() {
   }
   const state = info?.state, playing = screen === 'playing', isOnline = info?.mode === 'online';
   const player = state?.players[info?.player ?? 0];
+  const playerKind = player?.kind ?? kind, skill = SKILLS[playerKind];
+  const skillCooldown = player?.skillCooldown ?? 0;
+  const skillBlocked = state?.phase !== 'play' || (player?.staggered ?? 0) > 0 || (player?.skillTime ?? 0) > 0;
+  const skillStatus = skillCooldown > 0 ? `${Math.ceil(skillCooldown)}s` : skillBlocked ? 'WAIT' : 'READY';
+  const SkillIcon = playerKind === 'watti' ? Sun : playerKind === 'reachy' ? Wind : Footprints;
+  const staggered = player?.staggered ?? 0, blinded = player?.blinded ?? 0;
+  const effectTime = staggered > 0 ? staggered : blinded;
+  const effectName = staggered > 0 ? 'STAGGERED' : 'DAZZLED';
+  const dazzledOpponent = playerKind === 'watti' ? state?.players[1 - (info?.player ?? 0)].blinded ?? 0 : 0;
+  const dazzleStrength = playing ? flashPresentation(state, info?.player ?? 0).strength : 0;
   const minutes = Math.floor((state?.time ?? 180) / 60), seconds = Math.ceil((state?.time ?? 180) % 60);
   const clock = `${minutes.toString().padStart(2,'0')}:${Math.min(59,seconds).toString().padStart(2,'0')}`;
   const finished = playing && state?.phase === 'finished';
   return <main className={`game-shell ${playing ? 'is-playing' : ''}`} onPointerDownCapture={() => engine.current?.sound.unlock()} onKeyDownCapture={() => engine.current?.sound.unlock()}>
-    <div ref={host} className="arena-canvas" />
+    <div ref={host} className="arena-canvas" style={{ filter: dazzleStrength > 0 ? `blur(${9 * dazzleStrength}px) brightness(${1 + .2 * dazzleStrength})` : undefined }} />
     <div className="screen-grain" aria-hidden="true" />
     <header className="game-header">
       <button className="brand" onClick={() => menu()} aria-label="Robot League main menu"><span className="brand-icon">RL<span>★</span></span><span>ROBOT <em>LEAGUE</em><small>GARAGE FOOTBALL</small></span></button>
@@ -144,6 +155,8 @@ export function Football() {
     </div>}
 
     {playing && state && <>
+      {state.phase === 'play' && blinded > 0 && <div className="dazzle-haze" aria-hidden="true" style={{ opacity: dazzleStrength }} />}
+      {state.phase === 'play' && (effectTime > 0 || dazzledOpponent > 0) && <output className={`skill-effect-status ${effectTime > 0 ? '' : 'skill-hit-confirmation'}`}>{effectTime > 0 ? effectName : 'OPPONENT DAZZLED'}<span aria-hidden="true">{(effectTime > 0 ? effectTime : dazzledOpponent).toFixed(1)}s</span></output>}
       <div className="scoreboard">
         <div className="team-score cyan"><small>{state.players[0].name}</small><strong>{ROBOT_NAMES[state.players[0].kind].toUpperCase()}</strong><b>{state.score[0]}</b></div>
         <div className="match-clock"><span>{state.overtime ? 'EXTRA TIME' : isOnline ? 'ONLINE' : 'SOLO MATCH'}</span><strong>{clock}</strong><small>FIRST TO 5</small></div>
@@ -153,19 +166,19 @@ export function Football() {
       {state.phase === 'goal' && <div className="match-shout"><small>{state.players[state.lastScorer ?? 0].name}</small>GOOOAL!</div>}
       {state.phase === 'paused' && <div className="center-card"><Flag size={32} /><h2>{isOnline ? 'WAITING FOR OPPONENT' : 'TIME OUT'}</h2><p>{isOnline ? 'Connection lost. Waiting 15 seconds for a return.' : 'The robots are taking a breather.'}</p>{!isOnline && <Button className="play-button" onClick={() => engine.current?.pause()}>RESUME <ArrowRight /></Button>}<Button className="secondary-action" onClick={() => menu()}>MENU</Button></div>}
       {finished && <div className="center-card result"><div className="label-tape"><Flag size={16} /> FINAL WHISTLE</div><h2>{state.winner === null ? 'A DRAW!' : state.winner === info?.player ? 'YOU WIN!' : 'NEXT ONE IS YOURS!'}</h2><div className="final-score">{state.score[0]}<span>:</span>{state.score[1]}</div><p>{state.winner === null ? 'Sharing the garage glory today.' : `${state.players[state.winner].name} takes the match.`}</p><Button className="play-button" onClick={() => { if (isOnline) { socket.current?.send({type:'rematch'}); setStatus('Rematch request sent'); } else solo(); }}>REMATCH <ArrowRight /></Button>{isOnline && <p className="waiting">{status}</p>}<Button className="secondary-action" onClick={() => menu()}>MENU</Button></div>}
-      <div className="player-hud"><div className="hud-name"><Zap size={17} />{ROBOT_NAMES[player?.kind ?? kind].toUpperCase()}<small>{isOnline ? `${ping} MS` : 'YOU'}</small></div><div className="meter"><span style={{width:`${(player?.energy ?? 1)*100}%`}} /></div><small>SPRINT ENERGY</small>{(player?.charge ?? 0) > 0 && <div className="charge-meter"><span style={{width:`${(player?.charge ?? 0)*100}%`}} /><strong>SHOOT {Math.round((player?.charge ?? 0)*100)}%</strong></div>}</div>
+      <div className="player-hud"><div className="hud-name"><Zap size={17} />{ROBOT_NAMES[playerKind].toUpperCase()}<small>{isOnline ? `${ping} MS` : 'YOU'}</small></div><div className="meter"><span style={{width:`${(player?.energy ?? 1)*100}%`}} /></div><small>SPRINT ENERGY</small><div className={`skill-status ${skillCooldown > 0 || skillBlocked ? 'is-recharging' : ''}`} title={`${skill.description} ${SKILL_COOLDOWN} second cooldown.`}><kbd>E</kbd><SkillIcon size={17} /><strong>{skill.name.toUpperCase()}</strong><small>{skillStatus}</small><span className="skill-meter" aria-hidden="true"><i style={{ width: `${Math.max(0, 1 - skillCooldown / SKILL_COOLDOWN) * 100}%` }} /></span></div>{(player?.charge ?? 0) > 0 && <div className="charge-meter"><span style={{width:`${(player?.charge ?? 0)*100}%`}} /><strong>SHOOT {Math.round((player?.charge ?? 0)*100)}%</strong></div>}</div>
       <Button className="exit-match" variant="ghost" onClick={() => menu()}>MENU <X size={15} /></Button>
-      {touchLayout && !portrait && !help && state.phase !== 'paused' && !finished && <TouchControls input={touch} charge={player?.charge ?? 0} />}
+      {touchLayout && !portrait && !help && state.phase !== 'paused' && !finished && <TouchControls input={touch} charge={player?.charge ?? 0} kind={playerKind} skillCooldown={skillCooldown} skillBlocked={skillBlocked} />}
       {error && <div className="network-error" role="alert">{error}<Button variant="ghost" onClick={() => menu()}>MENU</Button></div>}
     </>}
-    <footer className="control-strip"><span><kbd>W A S D</kbd> MOVE</span><span><kbd>SPACE</kbd> HOLD → RELEASE TO SHOOT</span><span><kbd>E</kbd> TAP</span><span><kbd>SHIFT</kbd> SPRINT</span>{playing && <span><kbd>C</kbd> CAMERA</span>}<button onClick={() => changeHelp(true)}>HOW TO PLAY <ArrowUpRight size={14} /></button></footer>
+    <footer className="control-strip"><span><kbd>W A S D</kbd> MOVE</span><span><kbd>SPACE</kbd> HOLD → RELEASE TO SHOOT</span><span><kbd>Q</kbd> TAP</span><span><kbd>E</kbd> SKILL · {SKILL_COOLDOWN}s</span><span><kbd>SHIFT</kbd> SPRINT</span>{playing && <span><kbd>C</kbd> CAMERA</span>}<button onClick={() => changeHelp(true)}>HOW TO PLAY <ArrowUpRight size={14} /></button></footer>
     <aside className="rotate-notice" aria-label="Landscape orientation"><div><span className="rotate-icon"><Smartphone size={48} /><RotateCw size={27} /></span><h2>TURN YOUR PHONE</h2><p>Robot League plays in landscape.<br />Room for the pitch. And both your thumbs.</p></div></aside>
-    <Dialog open={help} onOpenChange={changeHelp}><DialogContent className="help-dialog"><DialogHeader><DialogTitle>GARAGE RULES</DialogTitle><DialogDescription>First to five goals wins, or lead the score when three minutes are up.</DialogDescription></DialogHeader><div className="help-list">{touchLayout && <p className="touch-help">On your phone: joystick on the left. Hold and release SHOOT, use TAP for a short hit, or hold RUN to sprint. Camera and pause are at the top.</p>}<p><kbd>WASD / ↑↓←→</kbd> Move and turn towards the goal.</p><p><kbd>SPACE</kbd> Hold to charge and release near the ball. Watti and Reachy head the ball; Microduck kicks it.</p><p><kbd>E</kbd> A short hit with Watti’s base, Microduck’s foot, or Reachy’s head.</p><p><kbd>SHIFT</kbd> Sprinting uses energy. Release to recharge.</p><p><kbd>C / ESC</kbd> Change camera / pause a solo match.</p><p>The ball bounces off the boards. No offsides. A draw adds one minute of sudden death.</p><p className="muted-copy">Share a room link or code to play with a friend. Both players must connect to the same game server.</p></div></DialogContent></Dialog>
+    <Dialog open={help} onOpenChange={changeHelp}><DialogContent className="help-dialog"><DialogHeader><DialogTitle>GARAGE RULES</DialogTitle><DialogDescription>First to five goals wins, or lead the score when three minutes are up.</DialogDescription></DialogHeader><div className="help-list">{touchLayout && <p className="touch-help">On your phone: joystick on the left. Hold and release SHOOT, use TAP for a short hit, hold RUN to sprint, or tap your named skill above SHOOT. Camera and pause are at the top.</p>}<p><kbd>WASD / ↑↓←→</kbd> Move and turn towards the goal.</p><p><kbd>SPACE</kbd> Hold to charge and release near the ball. Watti and Reachy head the ball; Microduck kicks it.</p><p><kbd>Q</kbd> A short hit with Watti’s base, Microduck’s foot, or Reachy’s head.</p><p><kbd>E</kbd> Use your robot’s skill. All skills recharge in {SKILL_COOLDOWN} seconds, even if they miss.</p><ul className="skill-help-list">{ROBOT_KINDS.map(robot => <li key={robot}><strong>{ROBOT_NAMES[robot]} · {SKILLS[robot].name}</strong>{SKILLS[robot].description}</li>)}</ul><p><kbd>SHIFT</kbd> Sprinting uses energy. Release to recharge.</p><p><kbd>C / ESC</kbd> Change camera / pause a solo match.</p><p>The ball bounces off the boards. No offsides. A draw adds one minute of sudden death.</p><p className="muted-copy">Share a room link or code to play with a friend. Both players must connect to the same game server.</p></div></DialogContent></Dialog>
   </main>;
 }
 
 
 
 function RobotPicker({ kind, onChange, disabled = false }: { kind: RobotKind; onChange: (kind: RobotKind) => void; disabled?: boolean }) {
-  return <fieldset className="robot-select" aria-label="Choose your robot">{ROBOT_KINDS.map(robot => <Button key={robot} disabled={disabled} aria-pressed={kind === robot} aria-label={`Play as ${ROBOT_NAMES[robot]}`} className={`robot-choice ${robot} ${kind === robot ? 'selected' : ''}`} onClick={() => onChange(robot)}><span className="robot-symbol">{robot === 'watti' ? 'W.' : robot === 'microduck' ? 'µ.' : 'R.'}</span><span>{ROBOT_NAMES[robot].toUpperCase()}</span>{kind === robot && <Check size={16} />}</Button>)}</fieldset>;
+  return <><fieldset className="robot-select" aria-label="Choose your robot">{ROBOT_KINDS.map(robot => <Button key={robot} disabled={disabled} aria-pressed={kind === robot} aria-label={`Play as ${ROBOT_NAMES[robot]}`} className={`robot-choice ${robot} ${kind === robot ? 'selected' : ''}`} onClick={() => onChange(robot)}><span className="robot-symbol">{robot === 'watti' ? 'W.' : robot === 'microduck' ? 'µ.' : 'R.'}</span><span>{ROBOT_NAMES[robot].toUpperCase()}</span>{kind === robot && <Check size={16} />}</Button>)}</fieldset><p className="robot-skill-hint" title={SKILLS[kind].description}><strong><kbd>E</kbd> {SKILLS[kind].name} · {SKILL_COOLDOWN}s</strong><span>{SKILLS[kind].description}</span></p></>;
 }
